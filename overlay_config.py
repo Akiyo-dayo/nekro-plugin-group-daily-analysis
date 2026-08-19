@@ -61,10 +61,6 @@ def overlay_na_config(defaults: dict[str, Any], cfg: Any) -> dict[str, Any]:
             ),
             "comic_group_list": parse_id_list(getattr(cfg, "COMIC_GROUP_LIST", "") or ""),
         },
-        "html": {
-            "html_base_url": str(getattr(cfg, "HTML_BASE_URL", "") or ""),
-            "html_only_url": bool(getattr(cfg, "HTML_ONLY_URL", False)),
-        },
     }
     merged = deep_merge(defaults, overlay)
     extra_raw = str(getattr(cfg, "CORE_CONFIG_JSON", "") or "").strip()

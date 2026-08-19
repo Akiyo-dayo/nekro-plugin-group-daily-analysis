@@ -3,6 +3,8 @@ from __future__ import annotations
 from nekro_agent.api.plugin import ConfigBase, NekroPlugin
 from pydantic import Field
 
+from t2i_defaults import DEFAULT_T2I_API_PATH, DEFAULT_T2I_API_URL
+
 plugin = NekroPlugin(
     name="群分析总结插件",
     module_name="group_daily_analysis",
@@ -38,14 +40,18 @@ class PluginConfig(ConfigBase):
         },
     )
     T2I_API_URL: str = Field(
-        default="",
+        default=DEFAULT_T2I_API_URL,
         title="T2I 渲染服务地址",
-        description="HTML 报告出图服务，例如 http://127.0.0.1:8000。图片格式报告需要此项。",
+        description=(
+            "图片报告出图服务。默认使用 AstrBot 官方端点，一般不用改。"
+            "国内慢可改为 https://t2i.vercel.ciallo.de5.net ；自建可填本机地址。"
+            "留空同样回落到官方端点。"
+        ),
     )
     T2I_API_PATH: str = Field(
-        default="/generate",
+        default=DEFAULT_T2I_API_PATH,
         title="T2I 接口路径",
-        description="T2I 服务的生成接口路径，默认 /generate。",
+        description="一般不用改。官方与常见 HF 空间均为 /generate。",
     )
 
     GROUP_LIST_MODE: str = Field(
@@ -112,13 +118,14 @@ class PluginConfig(ConfigBase):
     )
     COMIC_GROUP_LIST: str = Field(default="", title="漫画群名单")
 
-    HTML_BASE_URL: str = Field(default="", title="HTML 报告外链前缀")
-    HTML_ONLY_URL: bool = Field(default=False, title="HTML 仅发送外链")
-
     CORE_CONFIG_JSON: str = Field(
         default="",
         title="高级嵌套配置 JSON",
-        description="按原插件分组结构覆盖配置，例如 {\"prompts\": {...}}。留空则只用上方字段。",
+        description=(
+            "按原插件分组结构覆盖配置。HTML 外链、提示词等放这里，例如 "
+            '{"html":{"html_base_url":"https://report.example.com","html_only_url":true}}。'
+            "留空则只用上方字段。"
+        ),
     )
 
 

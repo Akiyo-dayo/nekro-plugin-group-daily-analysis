@@ -5,19 +5,18 @@ from typing import Any
 from urllib.parse import urljoin
 
 from http_util import post_json
+from t2i_defaults import resolve_t2i_endpoint
 from nekro_agent.api import core
 
 
 class HtmlRenderService:
     """兼容 AstrBot Star.html_render 签名的 T2I 客户端。"""
 
-    def __init__(self, api_url: str, api_path: str = "/generate") -> None:
-        self.api_url = (api_url or "").rstrip("/")
-        self.api_path = api_path or "/generate"
+    def __init__(self, api_url: str = "", api_path: str = "") -> None:
+        self.api_url, self.api_path = resolve_t2i_endpoint(api_url, api_path)
 
-    def configure(self, api_url: str, api_path: str = "/generate") -> None:
-        self.api_url = (api_url or "").rstrip("/")
-        self.api_path = api_path or "/generate"
+    def configure(self, api_url: str = "", api_path: str = "") -> None:
+        self.api_url, self.api_path = resolve_t2i_endpoint(api_url, api_path)
 
     async def __call__(
         self,
@@ -26,9 +25,6 @@ class HtmlRenderService:
         return_url: bool = False,
         options: dict[str, Any] | None = None,
     ) -> bytes | str | None:
-        if not self.api_url:
-            raise RuntimeError("未配置 T2I_API_URL，无法把 HTML 报告渲染成图片")
-
         payload = {
             "tmpl": tmpl,
             "html": tmpl,

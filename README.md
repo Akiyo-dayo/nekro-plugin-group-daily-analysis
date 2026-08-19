@@ -83,8 +83,8 @@
 
 4. 在插件配置中填写：
    - **分析用模型组**：NA 里已配置的 chat 模型组
-   - **T2I 渲染服务地址**：图片报告必需，见下文
-   - 按需填写群名单、定时时间、增量阈值、漫画开关
+   - 其余（T2I、群名单、定时、漫画）可先保持默认；图片报告默认走 AstrBot 官方出图服务
+   - 需要 HTML 网页外链时，写在「高级嵌套配置 JSON」，不要单独找外链输入框
 
 5. 在目标群执行 `分析设置 enable`，再执行 `群分析`。
 
@@ -114,8 +114,9 @@
 | 定时名单 | 白名单且为空时**不会**注册定时任务 |
 | 增量名单 | `inherit` 跟随定时名单；白名单为空表示不启用增量 |
 | 每日群漫画 | 总开关 + 分析完成后自动联动；可用 `群漫画` 单独生成 |
-| T2I 渲染服务地址 | HTML 出图服务，例如 `http://127.0.0.1:8000` |
-| 高级嵌套配置 JSON | 按原插件分组结构覆盖提示词等字段 |
+| T2I 渲染服务地址 | 默认 AstrBot 官方端点，一般不用改。国内慢或要自建时再换 |
+| T2I 接口路径 | 默认 `/generate`，一般不用改 |
+| 高级嵌套配置 JSON | 覆盖原插件分组配置。HTML 外链、提示词等放这里 |
 
 命令里改过的名单会写入插件数据目录的 `nested_config.json`，重启后仍保留。
 
@@ -131,15 +132,31 @@
 
 ## 图片报告与 T2I
 
-图片格式依赖独立的 HTML 转图片服务（与原 AstrBot 插件同一类 T2I 接口）。未配置 `T2I_API_URL` 时，图片报告无法渲染，会回退到文本。
+图片格式走与原 AstrBot 相同的 HTML 转图片接口。**默认已指向 AstrBot 官方端点**（`https://t2i.soulter.top/text2img`），和原版一样不用先填。留空也会回落到该地址。
 
-可参考原项目说明：
+出图慢或失败时再改「T2I 渲染服务地址」：
 
+- 国内加速：`https://t2i.vercel.ciallo.de5.net`
 - Hugging Face 空间：<https://huggingface.co/spaces/clown145/astrbot-t2i-service>
 - API 示例：`https://clown145-astrbot-t2i-service.hf.space`
-- 自托管文档：[AstrBot 自建 T2I](https://docs.astrbot.app/others/self-host-t2i.html)
+- 自托管：Docker 后填本机地址，例如 `http://127.0.0.1:8999`；文档见 [AstrBot 自建 T2I](https://docs.astrbot.app/others/self-host-t2i.html)
 
-若日志出现渲染超时或无效图片，可在高级 JSON 里加大 `t2i_rendering` 的超时，或换更近的 T2I 节点。
+接口路径默认 `/generate`。若日志出现渲染超时或无效图片，可在高级 JSON 里加大 `t2i_rendering` 的超时，或换更近的节点。
+
+### HTML 报告外链（可选）
+
+原版这项也是选填。本移植不再单独占配置项，需要时写入「高级嵌套配置 JSON」：
+
+```json
+{
+  "html": {
+    "html_base_url": "https://report.example.com",
+    "html_only_url": true
+  }
+}
+```
+
+前提是你已经用 Nginx 等把插件数据目录里的 HTML 报告挂到了这个前缀。不发网页外链就留空，群里仍会发图片/文本/HTML 文件本身。
 
 ## 各平台注意
 

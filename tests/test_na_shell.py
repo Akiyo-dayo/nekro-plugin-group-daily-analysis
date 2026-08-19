@@ -16,6 +16,7 @@ from chat_key import extract_group_id, parse_chat_key
 from local_history import LocalMessageHistoryManager
 from nested_config import NestedConfig, load_schema_defaults, parse_id_list
 from overlay_config import overlay_na_config
+from t2i_defaults import DEFAULT_T2I_API_PATH, DEFAULT_T2I_API_URL, resolve_t2i_endpoint
 
 
 class ChatKeyTests(unittest.TestCase):
@@ -65,9 +66,7 @@ class OverlayTests(unittest.TestCase):
             ENABLE_AUTO_DAILY_COMIC=False,
             COMIC_GROUP_LIST_MODE="inherit",
             COMIC_GROUP_LIST="",
-            HTML_BASE_URL="https://example.com",
-            HTML_ONLY_URL=True,
-            CORE_CONFIG_JSON="",
+            CORE_CONFIG_JSON='{"html":{"html_base_url":"https://example.com","html_only_url":true}}',
         )
         merged = overlay_na_config(load_schema_defaults(), cfg)
         self.assertEqual(merged["llm"]["llm_provider_id"], "my-chat")
@@ -76,6 +75,26 @@ class OverlayTests(unittest.TestCase):
         self.assertEqual(merged["auto_analysis"]["auto_analysis_time"], ["22:30", "08:00"])
         self.assertTrue(merged["daily_comic"]["enable_daily_comic"])
         self.assertIn("topic_prompt", merged["prompts"]["topic_analysis_prompts"])
+        self.assertEqual(merged["html"]["html_base_url"], "https://example.com")
+        self.assertTrue(merged["html"]["html_only_url"])
+
+    def test_overlay_keeps_default_html_when_json_omitted(self) -> None:
+        cfg = SimpleNamespace(CORE_CONFIG_JSON="")
+        merged = overlay_na_config(load_schema_defaults(), cfg)
+        self.assertEqual(merged["html"]["html_base_url"], "")
+        self.assertFalse(merged["html"]["html_only_url"])
+
+
+class T2IDefaultTests(unittest.TestCase):
+    def test_empty_url_falls_back_to_official_endpoint(self) -> None:
+        url, path = resolve_t2i_endpoint("", "")
+        self.assertEqual(url, DEFAULT_T2I_API_URL)
+        self.assertEqual(path, DEFAULT_T2I_API_PATH)
+
+    def test_custom_url_is_kept(self) -> None:
+        url, path = resolve_t2i_endpoint(" https://t2i.vercel.ciallo.de5.net ", "/generate")
+        self.assertEqual(url, "https://t2i.vercel.ciallo.de5.net")
+        self.assertEqual(path, "/generate")
 
 
 class NestedConfigTests(unittest.TestCase):
@@ -165,8 +184,6 @@ class ConfigManagerTests(unittest.TestCase):
                 ENABLE_AUTO_DAILY_COMIC=True,
                 COMIC_GROUP_LIST_MODE="inherit",
                 COMIC_GROUP_LIST="",
-                HTML_BASE_URL="",
-                HTML_ONLY_URL=False,
                 CORE_CONFIG_JSON="",
             )
             nested = NestedConfig(
