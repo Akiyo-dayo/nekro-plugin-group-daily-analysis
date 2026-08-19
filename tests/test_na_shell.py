@@ -32,6 +32,30 @@ class ChatKeyTests(unittest.TestCase):
         self.assertEqual(parsed.platform_name, "qq_official")
         self.assertEqual(parsed.chat_id, "abc")
 
+    def test_parse_chat_key_akiyo_onebot_instance_group(self) -> None:
+        parsed = parse_chat_key(
+            "onebot_v11-qq_1234567890-group_9876543210"
+        )
+        self.assertTrue(parsed.is_group)
+        self.assertEqual(parsed.adapter_key, "onebot_v11")
+        self.assertEqual(parsed.instance_key, "qq_1234567890")
+        self.assertEqual(parsed.chat_id, "9876543210")
+        self.assertEqual(parsed.platform_name, "onebot")
+        self.assertEqual(parsed.umo, "onebot:GroupMessage:9876543210")
+
+    def test_parse_chat_key_akiyo_onebot_instance_private(self) -> None:
+        parsed = parse_chat_key("onebot_v11-qq_1234567890-private_987654321")
+        self.assertFalse(parsed.is_group)
+        self.assertEqual(parsed.instance_key, "qq_1234567890")
+        self.assertEqual(parsed.chat_id, "987654321")
+        with self.assertRaises(ValueError):
+            extract_group_id("onebot_v11-qq_1234567890-private_987654321")
+
+    def test_parse_chat_key_rejects_invalid_akiyo_instance_segment(self) -> None:
+        parsed = parse_chat_key("onebot_v11-QQ-1234567890-group_9876543210")
+        self.assertEqual(parsed.instance_key, "")
+        self.assertEqual(parsed.chat_id, "onebot_v11-QQ-1234567890-group_9876543210")
+
     def test_extract_group_id_rejects_private(self) -> None:
         with self.assertRaises(ValueError):
             extract_group_id("onebot_v11-private_1")
