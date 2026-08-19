@@ -1,0 +1,183 @@
+from __future__ import annotations
+
+import asyncio
+import sys
+import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from types import SimpleNamespace
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from bot_bridge import BotCallProxy
+from chat_key import extract_group_id, parse_chat_key
+from local_history import LocalMessageHistoryManager
+from nested_config import NestedConfig, load_schema_defaults, parse_id_list
+from overlay_config import overlay_na_config
+
+
+class ChatKeyTests(unittest.TestCase):
+    def test_parse_chat_key_group(self) -> None:
+        parsed = parse_chat_key("onebot_v11-group_123456")
+        self.assertTrue(parsed.is_group)
+        self.assertEqual(parsed.chat_id, "123456")
+        self.assertEqual(parsed.platform_name, "onebot")
+        self.assertEqual(parsed.umo, "onebot:GroupMessage:123456")
+
+    def test_parse_chat_key_qq_official(self) -> None:
+        parsed = parse_chat_key("qqbot_openclaw-group_abc")
+        self.assertEqual(parsed.platform_name, "qq_official")
+        self.assertEqual(parsed.chat_id, "abc")
+
+    def test_extract_group_id_rejects_private(self) -> None:
+        with self.assertRaises(ValueError):
+            extract_group_id("onebot_v11-private_1")
+
+    def test_parse_id_list(self) -> None:
+        self.assertEqual(parse_id_list("123\n456,789"), ["123", "456", "789"])
+
+
+class OverlayTests(unittest.TestCase):
+    def test_overlay_na_config_sets_model_group(self) -> None:
+        cfg = SimpleNamespace(
+            MODEL_GROUP="my-chat",
+            GROUP_LIST_MODE="whitelist",
+            GROUP_LIST="onebot:GroupMessage:1",
+            ANALYSIS_DAYS=2,
+            MAX_MESSAGES=500,
+            MIN_MESSAGES_THRESHOLD=10,
+            FILTER_BOT_MESSAGES=True,
+            OUTPUT_FORMAT="image,html",
+            REPORT_TEMPLATE="ATRI",
+            ENABLE_ANALYSIS_REPLY=False,
+            SHOW_REPORT_CAPTION=True,
+            DEBUG_MODE=False,
+            AUTO_ANALYSIS_TIME="22:30,08:00",
+            SCHEDULED_GROUP_LIST_MODE="whitelist",
+            SCHEDULED_GROUP_LIST="1",
+            INCREMENTAL_GROUP_LIST_MODE="inherit",
+            INCREMENTAL_GROUP_LIST="",
+            INCREMENTAL_MIN_MESSAGES=100,
+            INCREMENTAL_REPORT_IMMEDIATELY=False,
+            ENABLE_DAILY_COMIC=True,
+            ENABLE_AUTO_DAILY_COMIC=False,
+            COMIC_GROUP_LIST_MODE="inherit",
+            COMIC_GROUP_LIST="",
+            HTML_BASE_URL="https://example.com",
+            HTML_ONLY_URL=True,
+            CORE_CONFIG_JSON="",
+        )
+        merged = overlay_na_config(load_schema_defaults(), cfg)
+        self.assertEqual(merged["llm"]["llm_provider_id"], "my-chat")
+        self.assertEqual(merged["basic"]["report_template"], "ATRI")
+        self.assertEqual(merged["basic"]["output_format"], ["image", "html"])
+        self.assertEqual(merged["auto_analysis"]["auto_analysis_time"], ["22:30", "08:00"])
+        self.assertTrue(merged["daily_comic"]["enable_daily_comic"])
+        self.assertIn("topic_prompt", merged["prompts"]["topic_analysis_prompts"])
+
+
+class NestedConfigTests(unittest.TestCase):
+    def test_nested_config_save(self) -> None:
+        with TemporaryDirectory() as tmp:
+            path = Path(tmp) / "nested_config.json"
+            cfg = NestedConfig({"basic": {"group_list": []}}, persist_path=path)
+            cfg["basic"]["group_list"] = ["1"]
+            cfg.save_config()
+            self.assertIn('"1"', path.read_text(encoding="utf-8"))
+
+
+class BotProxyTests(unittest.TestCase):
+    def test_bot_call_proxy_maps_call_action(self) -> None:
+        class FakeBot:
+            async def call_api(self, action: str, **kwargs):
+                return {"action": action, **kwargs}
+
+        proxy = BotCallProxy(FakeBot())
+
+        async def _run():
+            return await proxy.call_action("get_group_msg_history", group_id="1")
+
+        result = asyncio.run(_run())
+        self.assertEqual(result["action"], "get_group_msg_history")
+        self.assertEqual(result["group_id"], "1")
+
+
+class LocalHistoryTests(unittest.TestCase):
+    def test_local_history_insert_and_get(self) -> None:
+        with TemporaryDirectory() as tmp:
+            store = LocalMessageHistoryManager(Path(tmp) / "history")
+
+            async def _run():
+                await store.insert(
+                    "telegram",
+                    "100",
+                    {"type": "user", "message": [{"type": "plain", "text": "hi"}]},
+                    "u1",
+                    "alice",
+                )
+                await store.insert(
+                    "telegram",
+                    "100",
+                    {"type": "user", "message": [{"type": "plain", "text": "yo"}]},
+                    "u2",
+                    "bob",
+                )
+                return await store.get("telegram", "100", page=1, page_size=10)
+
+            page = asyncio.run(_run())
+            self.assertEqual(len(page), 2)
+            self.assertEqual(page[0].sender_name, "bob")
+            self.assertEqual(page[0].id, 2)
+            self.assertEqual(page[1].sender_name, "alice")
+
+
+class ConfigManagerTests(unittest.TestCase):
+    def test_config_manager_reads_overlay(self) -> None:
+        from astrbot.api.star import set_data_dir_factory
+        from src.infrastructure.config.config_manager import ConfigManager
+
+        with TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            set_data_dir_factory(lambda _name: tmp_path)
+            cfg = SimpleNamespace(
+                MODEL_GROUP="default",
+                GROUP_LIST_MODE="whitelist",
+                GROUP_LIST="123456",
+                ANALYSIS_DAYS=1,
+                MAX_MESSAGES=1000,
+                MIN_MESSAGES_THRESHOLD=200,
+                FILTER_BOT_MESSAGES=True,
+                OUTPUT_FORMAT="image",
+                REPORT_TEMPLATE="scrapbook",
+                ENABLE_ANALYSIS_REPLY=False,
+                SHOW_REPORT_CAPTION=True,
+                DEBUG_MODE=False,
+                AUTO_ANALYSIS_TIME="23:00",
+                SCHEDULED_GROUP_LIST_MODE="whitelist",
+                SCHEDULED_GROUP_LIST="123456",
+                INCREMENTAL_GROUP_LIST_MODE="whitelist",
+                INCREMENTAL_GROUP_LIST="123456",
+                INCREMENTAL_MIN_MESSAGES=300,
+                INCREMENTAL_REPORT_IMMEDIATELY=False,
+                ENABLE_DAILY_COMIC=False,
+                ENABLE_AUTO_DAILY_COMIC=True,
+                COMIC_GROUP_LIST_MODE="inherit",
+                COMIC_GROUP_LIST="",
+                HTML_BASE_URL="",
+                HTML_ONLY_URL=False,
+                CORE_CONFIG_JSON="",
+            )
+            nested = NestedConfig(
+                overlay_na_config(load_schema_defaults(), cfg),
+                persist_path=tmp_path / "nested.json",
+            )
+            manager = ConfigManager(nested)
+            self.assertTrue(manager.is_group_allowed("123456"))
+            self.assertEqual(manager.get_report_template(), "scrapbook")
+            self.assertTrue(manager.get_incremental_enabled())
+
+
+if __name__ == "__main__":
+    unittest.main()

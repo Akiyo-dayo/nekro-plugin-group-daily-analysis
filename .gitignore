@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.upstream/
+.idea/
+.vscode/
+*.log
+dist/
+build/
+debug_data/
+self_hosted_html_reports/
+config_backups/
+custom_t2i_templates/

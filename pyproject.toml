@@ -1,0 +1,38 @@
+[project]
+name = "nekro-plugin-group-daily-analysis"
+version = "5.0.5"
+description = "NekroAgent 群日常分析插件，移植自 astrbot_plugin_qq_group_daily_analysis"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Akiyo-dayo" }]
+dependencies = [
+    "nekro-agent>=2.0.0",
+    "httpx",
+    "aiohttp",
+    "apscheduler",
+    "diskcache",
+    "ulid-py",
+    "markupsafe",
+    "pillow",
+    "jinja2",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[project.urls]
+Repository = "https://github.com/Akiyo-dayo/nekro-plugin-group-daily-analysis"
+Original = "https://github.com/SXP-Simon/astrbot_plugin_qq_group_daily_analysis"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["."]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "--import-mode=importlib --ignore=__init__.py --ignore=plugin.py --ignore=runtime.py --ignore=commands.py --ignore=sandbox.py --ignore=lifecycle.py"
