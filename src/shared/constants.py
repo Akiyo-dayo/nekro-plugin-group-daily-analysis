@@ -68,7 +68,7 @@ class ReportFormat(str, Enum):
 
 # 插件元数据
 PLUGIN_NAME = "group_daily_analysis"
-PLUGIN_VERSION = "5.0.5"
+PLUGIN_VERSION = "5.0.6"
 
 # 平台标识符
 SUPPORTED_PLATFORMS = [

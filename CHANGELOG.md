@@ -4,6 +4,8 @@
 
 同时兼容原版 NekroAgent（KroMiose 官方镜像）和 akiyo 版 NekroAgent。
 
+- 兼容 Akiyo 的 OneBot 多实例会话 Key，例如 `onebot_v11-qq_1234567890-group_9876543210`；原版仍用 `onebot_v11-group_<群号>`。
+- 修复把完整 `chat_key` 误当群号、有消息却报 `no_messages` 的问题。
 - 命令输出类型 `CommandOutputSegment` 先从公开 `api.plugin` 导入，原版未再导出时回退到 `services.command.schemas`。
 - 加载时把插件目录加入 `sys.path`，避免工作区模块找不到 `cron` / `plugin` 等同级文件。
 - 原版镜像缺少的运行时依赖（httpx、aiohttp、diskcache、ulid-py、markupsafe、Pillow、Jinja2）改为按需装进插件动态包目录；PyPI 源使用阿里云镜像。

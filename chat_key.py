@@ -4,6 +4,10 @@ import re
 from dataclasses import dataclass
 
 _CHAT_KEY_RE = re.compile(r"^(?P<adapter>[^-]+)-(?P<kind>group|private)_(?P<chat_id>.+)$")
+_AKIYO_ONEBOT_CHAT_KEY_RE = re.compile(
+    r"^onebot_v11-(?P<instance_key>[a-z0-9_]{1,32})-"
+    r"(?P<kind>group|private)_(?P<chat_id>.+)$"
+)
 
 
 @dataclass(frozen=True)
@@ -11,6 +15,7 @@ class ParsedChatKey:
     adapter_key: str
     kind: str
     chat_id: str
+    instance_key: str = ""
 
     @property
     def is_group(self) -> bool:
@@ -44,6 +49,14 @@ class ParsedChatKey:
 
 def parse_chat_key(chat_key: str) -> ParsedChatKey:
     text = (chat_key or "").strip()
+    akiyo_match = _AKIYO_ONEBOT_CHAT_KEY_RE.match(text)
+    if akiyo_match:
+        return ParsedChatKey(
+            adapter_key="onebot_v11",
+            kind=akiyo_match.group("kind"),
+            chat_id=akiyo_match.group("chat_id"),
+            instance_key=akiyo_match.group("instance_key"),
+        )
     matched = _CHAT_KEY_RE.match(text)
     if matched:
         return ParsedChatKey(

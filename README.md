@@ -2,7 +2,7 @@
 
 # 群分析总结插件 · NekroAgent
 
-[![Version](https://img.shields.io/badge/version-v5.0.5-76bad9?style=for-the-badge)](https://github.com/Akiyo-dayo/nekro-plugin-group-daily-analysis)
+[![Version](https://img.shields.io/badge/version-v5.0.6-76bad9?style=for-the-badge)](https://github.com/Akiyo-dayo/nekro-plugin-group-daily-analysis)
 [![NekroAgent](https://img.shields.io/badge/NekroAgent-Plugin-6c5ce7?style=for-the-badge)](https://github.com/KroMiose/nekro-agent)
 [![License](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](LICENSE)
 
@@ -162,6 +162,8 @@
 
 **OneBot（NapCat / LLOneBot / SnowLuma 等）**  
 走协议 `get_group_msg_history` 拉历史，这是最完整的日报路径。
+
+同时兼容原版 NekroAgent 的 `onebot_v11-group_<group_id>`，以及 Akiyo NekroAgent 的多实例格式 `onebot_v11-<instance_key>-group_<group_id>`。v5.0.6 会解析并保留 `instance_key`，避免把完整 `chat_key` 误当群号；同一 NA 多个 OneBot 实例的完整出站路由不在本次修复范围内，仍沿用现有 BotManager 绑定行为。
 
 **QQ 官方机器人**  
 官方 API 不能按群回拉历史。插件只会缓存**启用之后**收到的群消息。启用前的聊天无法自动补齐。配置名单时建议使用完整 UMO 或 NA 的 `chat_key`。
