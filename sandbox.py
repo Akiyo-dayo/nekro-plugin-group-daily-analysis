@@ -35,7 +35,7 @@ async def tool_analyze_group(_ctx: AgentCtx, days: int = 1) -> str:
         raise ValueError("days 必须大于 0")
     runtime = get_runtime()
     parsed, chat_key = _group_from_ctx(_ctx)
-    runtime.bind_bots()
+    runtime.bind_bots(chat_key)
     if not runtime.config_manager.is_group_allowed(parsed.umo):
         raise ValueError("此群未启用日常分析功能")
     TraceContext.set(TraceContext.generate(prefix="agent", group_name=parsed.chat_id))
@@ -70,8 +70,8 @@ async def tool_generate_comic(_ctx: AgentCtx, days: int = 1) -> str:
     if days <= 0:
         raise ValueError("days 必须大于 0")
     runtime = get_runtime()
-    parsed, _chat_key = _group_from_ctx(_ctx)
-    runtime.bind_bots()
+    parsed, chat_key = _group_from_ctx(_ctx)
+    runtime.bind_bots(chat_key)
     if not runtime.config_manager.get_enable_daily_comic():
         raise ValueError("漫画生成功能未启用")
     if not runtime.config_manager.is_comic_group_allowed(parsed.umo):

@@ -3,15 +3,21 @@ from __future__ import annotations
 from typing import Annotated, AsyncIterator
 
 from chat_key import parse_chat_key
-from nekro_agent.services.command.base import CommandPermission
-from nekro_agent.services.command.ctl import CmdCtl
-from nekro_agent.services.command.schemas import (
+from nekro_agent.api.plugin import (
     Arg,
+    CmdCtl,
     CommandExecutionContext,
-    CommandOutputSegment,
-    CommandOutputSegmentType,
+    CommandPermission,
     CommandResponse,
 )
+
+try:
+    from nekro_agent.api.plugin import CommandOutputSegment, CommandOutputSegmentType
+except ImportError:  # 原版 NA 未从 api.plugin 再导出这两项
+    from nekro_agent.services.command.schemas import (
+        CommandOutputSegment,
+        CommandOutputSegmentType,
+    )
 from plugin import plugin
 from runtime import get_runtime
 from src.application.services.analysis_application_service import DuplicateGroupTaskError
@@ -61,7 +67,7 @@ async def analyze_group_cmd(
     except ValueError as exc:
         yield CmdCtl.failed(str(exc))
         return
-    runtime.bind_bots()
+    runtime.bind_bots(context.chat_key)
     if not runtime.config_manager.is_group_allowed(parsed.umo):
         yield CmdCtl.failed("此群未启用日常分析功能")
         return
@@ -112,7 +118,7 @@ async def generate_comic_cmd(
     except ValueError as exc:
         yield CmdCtl.failed(str(exc))
         return
-    runtime.bind_bots()
+    runtime.bind_bots(context.chat_key)
     if not runtime.config_manager.get_enable_daily_comic():
         yield CmdCtl.failed("漫画生成功能未启用")
         return
@@ -220,7 +226,7 @@ async def analysis_settings_cmd(
     except ValueError as exc:
         yield CmdCtl.failed(str(exc))
         return
-    runtime.bind_bots()
+    runtime.bind_bots(context.chat_key)
     action_name = (action or "status").strip().lower() or "status"
     group_id = parsed.chat_id
     target_id = parsed.umo

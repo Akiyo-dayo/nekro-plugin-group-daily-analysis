@@ -122,6 +122,35 @@ class BotProxyTests(unittest.TestCase):
         self.assertEqual(result["action"], "get_group_msg_history")
         self.assertEqual(result["group_id"], "1")
 
+    def test_bot_call_proxy_ignores_getattr_call_action(self) -> None:
+        class FakeNoneBot:
+            def __getattr__(self, name: str):
+                async def _fake(*args, **kwargs):
+                    raise AssertionError(f"should not call getattr {name}")
+
+                return _fake
+
+            async def call_api(self, api: str, **kwargs):
+                return {"api": api, **kwargs}
+
+        proxy = BotCallProxy(FakeNoneBot())
+
+        async def _run():
+            return await proxy.call_action("get_group_info", group_id=2)
+
+        result = asyncio.run(_run())
+        self.assertEqual(result["api"], "get_group_info")
+        self.assertEqual(result["group_id"], 2)
+
+
+class FactoryTests(unittest.TestCase):
+    def test_onebot_v11_alias_is_registered(self) -> None:
+        from src.infrastructure.platform.factory import PlatformAdapterFactory
+
+        self.assertTrue(PlatformAdapterFactory.is_supported("onebot"))
+        self.assertTrue(PlatformAdapterFactory.is_supported("onebot_v11"))
+        self.assertTrue(PlatformAdapterFactory.is_supported("aiocqhttp"))
+
 
 class LocalHistoryTests(unittest.TestCase):
     def test_local_history_insert_and_get(self) -> None:

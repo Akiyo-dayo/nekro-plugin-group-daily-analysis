@@ -289,7 +289,15 @@ class BotManager:
             if platform_id in self._platforms:
                 self._refresh_from_stored_platforms()
 
-            return self._adapters.get(platform_id)
+            adapter = self._adapters.get(platform_id)
+            if adapter:
+                return adapter
+            if platform_id in {"onebot_v11", "onebot", "aiocqhttp"}:
+                for alias in ("onebot_v11", "onebot", "aiocqhttp"):
+                    adapter = self._adapters.get(alias)
+                    if adapter:
+                        return adapter
+            return None
 
         if self._adapters:
             if len(self._adapters) == 1:

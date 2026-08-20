@@ -7,8 +7,6 @@ import asyncio
 import time as time_mod
 from typing import Any
 
-from apscheduler.triggers.cron import CronTrigger
-
 from ...application.services.analysis_application_service import DuplicateGroupTaskError
 from ...shared.trace_context import TraceContext
 from ...utils.logger import logger
@@ -16,6 +14,7 @@ from ..messaging.message_sender import MessageSender
 from ..platform.factory import PlatformAdapterFactory
 from ..reporting.dispatcher import ReportDispatcher
 from .incremental_trigger import IncrementalTriggerCoordinator
+from cron import CronTrigger
 
 _SCHEDULED_DISPATCH_INFO_SECONDS = 1.0
 _SCHEDULED_DISPATCH_WARN_SECONDS = 15.0

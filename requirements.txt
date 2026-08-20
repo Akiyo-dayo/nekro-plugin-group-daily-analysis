@@ -1,6 +1,5 @@
 httpx
 aiohttp
-apscheduler
 diskcache
 ulid-py
 markupsafe

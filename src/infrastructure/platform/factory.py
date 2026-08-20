@@ -73,6 +73,7 @@ def _register_adapters():
 
         PlatformAdapterFactory.register("aiocqhttp", OneBotAdapter)
         PlatformAdapterFactory.register("onebot", OneBotAdapter)
+        PlatformAdapterFactory.register("onebot_v11", OneBotAdapter)
     except ImportError:
         pass
 

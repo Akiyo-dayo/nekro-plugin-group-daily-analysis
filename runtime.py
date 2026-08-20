@@ -238,8 +238,8 @@ class PluginRuntime:
         await self.cron_manager.shutdown()
         logger.info("群日常分析插件资源清理完成")
 
-    def bind_bots(self) -> None:
-        bind_platform_bots(self.bot_manager)
+    def bind_bots(self, chat_key: str | None = None) -> None:
+        bind_platform_bots(self.bot_manager, chat_key)
 
     def first_self_id(self) -> str:
         ids = self.bot_manager._bot_self_ids

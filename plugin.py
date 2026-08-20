@@ -12,7 +12,7 @@ plugin = NekroPlugin(
         "群日常分析总结插件：话题、称号、金句、活跃度报告与群漫画。"
         "移植自 SXP-Simon/astrbot_plugin_qq_group_daily_analysis。"
     ),
-    version="5.0.5",
+    version="5.0.6",
     author="SXPSimon",
     url="https://github.com/Akiyo-dayo/nekro-plugin-group-daily-analysis",
     support_adapter=["onebot_v11", "discord", "telegram", "qqbot_openclaw"],

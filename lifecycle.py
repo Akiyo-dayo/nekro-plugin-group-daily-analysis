@@ -37,7 +37,7 @@ async def on_user_message(_ctx: AgentCtx, message):
     parsed = parse_chat_key(getattr(message, "chat_key", "") or "")
     if not parsed.is_group:
         return None
-    runtime.bind_bots()
+    runtime.bind_bots(getattr(message, "chat_key", "") or "")
     adapter = runtime.bot_manager.get_adapter(parsed.adapter_key)
     bot = runtime.bot_manager.get_bot_instance(parsed.adapter_key) or (
         adapter.bot if adapter is not None else None
