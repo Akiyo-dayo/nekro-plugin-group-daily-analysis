@@ -194,9 +194,9 @@ def extra_na_specs() -> list[FieldSpec]:
             path=(),
             title="T2I 渲染服务地址",
             description=(
-                "图片报告出图服务。默认使用 AstrBot 官方端点，一般不用改。"
-                "国内慢可改为 https://t2i.vercel.ciallo.de5.net ；自建可填本机地址。"
-                "留空同样回落到官方端点。"
+                "图片报告出图服务。默认使用国内加速节点 https://t2i.vercel.ciallo.de5.net 。"
+                "原先保存的官方地址 t2i.soulter.top 会自动切到国内节点，避免长报告 502 后只发文字。"
+                "自建可填本机地址；留空同样回落到国内加速。"
             ),
             category="NekroAgent 适配",
             default=DEFAULT_T2I_API_URL,

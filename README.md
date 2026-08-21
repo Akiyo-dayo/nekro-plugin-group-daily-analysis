@@ -2,7 +2,7 @@
 
 # 群分析总结插件 · NekroAgent
 
-[![Version](https://img.shields.io/badge/version-v5.1.2-76bad9?style=for-the-badge)](https://github.com/Akiyo-dayo/nekro-plugin-group-daily-analysis)
+[![Version](https://img.shields.io/badge/version-v5.1.3-76bad9?style=for-the-badge)](https://github.com/Akiyo-dayo/nekro-plugin-group-daily-analysis)
 [![NekroAgent](https://img.shields.io/badge/NekroAgent-Plugin-6c5ce7?style=for-the-badge)](https://github.com/KroMiose/nekro-agent)
 [![License](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](LICENSE)
 
@@ -84,7 +84,7 @@
 4. 在插件配置中填写：
    - **分析用模型组**：NA 里已配置的 chat 模型组
    - **漫画绘图模型组**：选类型为绘图(draw) 的模型组（默认 `default-draw`）；调用格式可选「聊天模式」或「图像生成」
-   - 其余（T2I、群名单、定时）可先保持默认；图片报告默认走 AstrBot 官方出图服务
+   - 其余（T2I、群名单、定时）可先保持默认；图片报告默认走国内 T2I 加速节点
    - 需要 HTML 网页外链时，写在「高级嵌套配置 JSON」，不要单独找外链输入框
 
 5. 在目标群执行 `分析设置 enable`，再执行 `群分析`。
@@ -117,7 +117,7 @@
 | 提示词模板 | 原版话题/称号/金句/质量/漫画提示词，含用户 ID 引用说明 |
 | 定时 / 增量 / HTML / 群文件 | 与原版分组一致 |
 | 每日群漫画 | 漫画绘图模型组（NA 的 draw 模型组）和调用格式；分镜文案仍用「画图提示词模型」 |
-| T2I 渲染服务地址 | NA 适配项。默认 AstrBot 官方端点，一般不用改 |
+| T2I 渲染服务地址 | NA 适配项。默认国内加速节点，一般不用改 |
 | 高级嵌套配置 JSON | 仅作覆盖用；日常请用上方分组选项 |
 
 每项配置的说明会显示在 WebUI 标题旁的问号里，下拉项与原版 `_conf_schema.json` 对齐。命令里改过的名单会写入插件数据目录的 `nested_config.json`；WebUI 保存的字段在重启后优先生效。
@@ -134,11 +134,11 @@
 
 ## 图片报告与 T2I
 
-图片格式走与原 AstrBot 相同的 HTML 转图片接口。**默认已指向 AstrBot 官方端点**（`https://t2i.soulter.top/text2img`），和原版一样不用先填。留空也会回落到该地址。
+图片格式走与原 AstrBot 相同的 HTML 转图片接口。**默认使用国内加速节点**（`https://t2i.vercel.ciallo.de5.net`）。留空、以及仍保存着旧官方地址 `https://t2i.soulter.top/text2img` 的配置，都会落到这个节点。
 
 出图慢或失败时再改「T2I 渲染服务地址」：
 
-- 国内加速：`https://t2i.vercel.ciallo.de5.net`
+- AstrBot 官方：`https://t2i.soulter.top/text2img`（已改为自动切国内，避免长报告 502）
 - Hugging Face 空间：<https://huggingface.co/spaces/clown145/astrbot-t2i-service>
 - API 示例：`https://clown145-astrbot-t2i-service.hf.space`
 - 自托管：Docker 后填本机地址，例如 `http://127.0.0.1:8999`；文档见 [AstrBot 自建 T2I](https://docs.astrbot.app/others/self-host-t2i.html)

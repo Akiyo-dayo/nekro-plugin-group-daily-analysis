@@ -18,7 +18,12 @@ from local_history import LocalMessageHistoryManager
 from na_schema import iter_field_specs
 from nested_config import NestedConfig, load_schema_defaults, parse_id_list
 from overlay_config import overlay_na_config
-from t2i_defaults import DEFAULT_T2I_API_PATH, DEFAULT_T2I_API_URL, resolve_t2i_endpoint
+from t2i_defaults import (
+    DEFAULT_T2I_API_PATH,
+    DEFAULT_T2I_API_URL,
+    LEGACY_OFFICIAL_T2I_API_URL,
+    resolve_t2i_endpoint,
+)
 
 
 class ChatKeyTests(unittest.TestCase):
@@ -231,14 +236,20 @@ class OverlayTests(unittest.TestCase):
 
 
 class T2IDefaultTests(unittest.TestCase):
-    def test_empty_url_falls_back_to_official_endpoint(self) -> None:
+    def test_empty_url_falls_back_to_mainland_endpoint(self) -> None:
         url, path = resolve_t2i_endpoint("", "")
+        self.assertEqual(url, DEFAULT_T2I_API_URL)
+        self.assertEqual(path, DEFAULT_T2I_API_PATH)
+        self.assertEqual(url, "https://t2i.vercel.ciallo.de5.net")
+
+    def test_legacy_official_url_migrates_to_mainland(self) -> None:
+        url, path = resolve_t2i_endpoint(LEGACY_OFFICIAL_T2I_API_URL, "/generate")
         self.assertEqual(url, DEFAULT_T2I_API_URL)
         self.assertEqual(path, DEFAULT_T2I_API_PATH)
 
     def test_custom_url_is_kept(self) -> None:
-        url, path = resolve_t2i_endpoint(" https://t2i.vercel.ciallo.de5.net ", "/generate")
-        self.assertEqual(url, "https://t2i.vercel.ciallo.de5.net")
+        url, path = resolve_t2i_endpoint(" https://example.invalid/t2i ", "/generate")
+        self.assertEqual(url, "https://example.invalid/t2i")
         self.assertEqual(path, "/generate")
 
 
