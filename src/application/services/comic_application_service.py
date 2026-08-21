@@ -133,7 +133,7 @@ class ComicApplicationService:
         # 5. 内置绘图后端未配置时直接取消，避免空跑
         if not self.config_manager.get_drawing_provider_configs():
             logger.warning(
-                "[Comic] 未配置绘图供应商（drawing_provider_overrides），取消漫画生成。"
+                "[Comic] 未配置可用的绘图模型组或供应商，取消漫画生成。"
             )
             return None, None
 

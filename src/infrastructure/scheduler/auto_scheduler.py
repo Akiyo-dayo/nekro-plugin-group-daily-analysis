@@ -98,7 +98,13 @@ class AutoScheduler:
 
                 # 如果有多个实例，尝试通过适配器检查群属于哪个平台
                 logger.info(f"检测到多个适配器，正在验证群 {group_id} 属于哪个平台...")
-                for platform_id in self.bot_manager.get_platform_ids():
+                platform_ids = list(self.bot_manager.get_platform_ids())
+                platform_ids.sort(
+                    key=lambda item: 0
+                    if str(item) in {"onebot_v11", "onebot", "aiocqhttp"}
+                    else 1
+                )
+                for platform_id in platform_ids:
                     try:
                         adapter = self.bot_manager.get_adapter(platform_id)
                         if adapter:
@@ -328,6 +334,7 @@ class AutoScheduler:
         if self._terminating:
             return
         try:
+            self.config_manager.reload_config()
             logger.info("定时报告触发 — 开始解析调度目标")
 
             if self.incremental_trigger:
@@ -527,6 +534,12 @@ class AutoScheduler:
             logger.info(
                 f"开始为群 {group_id} 执行自动分析 (Platform: {target_platform_id or 'Auto'})"
             )
+
+            if not target_platform_id:
+                target_platform_id = await self.get_platform_id_for_group(group_id)
+                logger.info(
+                    f"自动分析已解析平台: group={group_id} platform={target_platform_id}"
+                )
 
             # 检查平台状态 (BotManager 为基础设施层，用于获取平台就绪状态)
             if not self.bot_manager.is_ready_for_auto_analysis():

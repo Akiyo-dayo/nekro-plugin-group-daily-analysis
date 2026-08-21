@@ -81,6 +81,8 @@
     "comic_characters": [],
     "drawing_reference_image": [],
     "drawing_backend": "builtin",
+    "draw_model_group": "default-draw",
+    "draw_model_mode": "聊天模式",
     "drawing_external_fallback": true,
     "drawing_provider_overrides": [],
     "drawing_proxy": "",

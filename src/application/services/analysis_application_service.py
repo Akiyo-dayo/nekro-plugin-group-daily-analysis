@@ -208,8 +208,13 @@ class AnalysisApplicationService:
         """
 
         async with self.group_lock(group_id, "daily"):
+            self.config_manager.reload_config()
             logger.info(
-                f"开始执行分析用例: 群 {group_id}, platform_id={platform_id or '默认'}, days={days or '默认'}"
+                "开始执行分析用例: 群 %s, platform_id=%s, days=%s, template=%s",
+                group_id,
+                platform_id or "默认",
+                days or "默认",
+                self.config_manager.get_report_template(),
             )
 
             # 1. 获取适配器
@@ -423,6 +428,7 @@ class AnalysisApplicationService:
             ValueError: 找不到对应平台适配器时抛出。
         """
         async with self.group_lock(group_id, "comic"):
+            self.config_manager.reload_config()
             logger.info(
                 "开始执行手动漫画话题分析: group=%s, platform=%s, days=%s",
                 group_id,

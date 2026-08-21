@@ -34,6 +34,7 @@ async def tool_analyze_group(_ctx: AgentCtx, days: int = 1) -> str:
     if days <= 0:
         raise ValueError("days 必须大于 0")
     runtime = get_runtime()
+    runtime.refresh_na_config()
     parsed, chat_key = _group_from_ctx(_ctx)
     runtime.bind_bots(chat_key)
     if not runtime.config_manager.is_group_allowed(parsed.umo):
@@ -70,6 +71,7 @@ async def tool_generate_comic(_ctx: AgentCtx, days: int = 1) -> str:
     if days <= 0:
         raise ValueError("days 必须大于 0")
     runtime = get_runtime()
+    runtime.refresh_na_config()
     parsed, chat_key = _group_from_ctx(_ctx)
     runtime.bind_bots(chat_key)
     if not runtime.config_manager.get_enable_daily_comic():
@@ -112,6 +114,7 @@ async def tool_incremental_status(_ctx: AgentCtx) -> str:
     from datetime import datetime
 
     runtime = get_runtime()
+    runtime.refresh_na_config()
     parsed, _chat_key = _group_from_ctx(_ctx)
     if not runtime.config_manager.get_incremental_enabled():
         raise ValueError("增量分析未启用")

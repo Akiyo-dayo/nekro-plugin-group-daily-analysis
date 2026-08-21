@@ -13,7 +13,9 @@ if str(ROOT) not in sys.path:
 
 from bot_bridge import BotCallProxy
 from chat_key import extract_group_id, parse_chat_key
+from http_util import chat_completions_url
 from local_history import LocalMessageHistoryManager
+from na_schema import iter_field_specs
 from nested_config import NestedConfig, load_schema_defaults, parse_id_list
 from overlay_config import overlay_na_config
 from t2i_defaults import DEFAULT_T2I_API_PATH, DEFAULT_T2I_API_URL, resolve_t2i_endpoint
@@ -107,6 +109,125 @@ class OverlayTests(unittest.TestCase):
         merged = overlay_na_config(load_schema_defaults(), cfg)
         self.assertEqual(merged["html"]["html_base_url"], "")
         self.assertFalse(merged["html"]["html_only_url"])
+
+    def test_overlay_exposes_original_schema_options(self) -> None:
+        cfg = SimpleNamespace(
+            REPORT_TEMPLATE="ATRI",
+            T2I_R1_TYPE="jpeg",
+            T2I_FONT_SOURCE="Mainland",
+            T2I_MAINLAND_GOOGLE_FONTS="https://fonts.loli.net",
+            TOPIC_ANALYSIS_ENABLED=False,
+            GOLDEN_QUOTE_ANALYSIS_ENABLED=True,
+            KEEP_ORIGINAL_PERSONA=True,
+            MAX_TOPICS=7,
+            OUTPUT_FORMAT=["image", "html"],
+            PROFILE_DISPLAY_MODE="sbti",
+        )
+        merged = overlay_na_config(load_schema_defaults(), cfg)
+        self.assertEqual(merged["basic"]["report_template"], "ATRI")
+        self.assertEqual(merged["t2i_rendering"]["t2i_r1_type"], "jpeg")
+        self.assertEqual(merged["t2i_rendering"]["t2i_font_source"], "Mainland")
+        self.assertFalse(merged["analysis_features"]["topic_analysis_enabled"])
+        self.assertTrue(merged["analysis_features"]["keep_original_persona"])
+        self.assertEqual(merged["analysis_features"]["max_topics"], 7)
+        self.assertEqual(merged["basic"]["output_format"], ["image", "html"])
+        self.assertEqual(merged["basic"]["profile_display_mode"], "sbti")
+
+    def test_schema_covers_original_dropdowns_and_hints(self) -> None:
+        specs = {spec.na_name: spec for spec in iter_field_specs()}
+        self.assertIn("REPORT_TEMPLATE", specs)
+        self.assertIn("ATRI", specs["REPORT_TEMPLATE"].options)
+        self.assertIn("scrapbook", specs["REPORT_TEMPLATE"].options)
+        self.assertTrue(specs["REPORT_TEMPLATE"].description)
+        self.assertEqual(specs["T2I_R1_TYPE"].options, ("jpeg", "png"))
+        self.assertEqual(specs["T2I_FONT_SOURCE"].options, ("Mainland", "Overseas"))
+        self.assertTrue(specs["TOPIC_ANALYSIS_ENABLED"].description)
+        self.assertTrue(specs["KEEP_ORIGINAL_PERSONA"].description)
+        self.assertTrue(specs["MODEL_GROUP"].ref_model_groups)
+        self.assertTrue(specs["PLUGIN_SPECIFIC_PERSONA_ID"].ref_presets)
+        self.assertTrue(specs["TOPIC_PROMPT"].is_textarea)
+        self.assertGreaterEqual(len(specs), 80)
+
+    def test_draw_model_group_is_na_native_and_astrbot_backends_hidden(self) -> None:
+        from na_schema import extra_na_specs
+
+        extras = {spec.na_name: spec for spec in extra_na_specs()}
+        self.assertEqual(extras["DRAW_MODEL_GROUP"].model_type, "draw")
+        self.assertTrue(extras["DRAW_MODEL_GROUP"].ref_model_groups)
+        self.assertEqual(extras["DRAW_MODEL_GROUP"].path, ("daily_comic", "draw_model_group"))
+        self.assertEqual(extras["DRAW_MODEL_MODE"].options, ("聊天模式", "图像生成"))
+
+        specs = {spec.na_name: spec for spec in iter_field_specs()}
+        self.assertTrue(specs["DRAWING_BACKEND"].is_hidden)
+        self.assertTrue(specs["DRAWING_PROVIDER_OVERRIDES"].is_hidden)
+        self.assertTrue(specs["DRAWING_EXTERNAL_FALLBACK"].is_hidden)
+
+    def test_overlay_maps_draw_model_group(self) -> None:
+        cfg = SimpleNamespace(
+            DRAW_MODEL_GROUP="default-draw",
+            DRAW_MODEL_MODE="图像生成",
+            CORE_CONFIG_JSON="",
+        )
+        merged = overlay_na_config(load_schema_defaults(), cfg)
+        self.assertEqual(merged["daily_comic"]["draw_model_group"], "default-draw")
+        self.assertEqual(merged["daily_comic"]["draw_model_mode"], "图像生成")
+
+    def test_draw_provider_from_group_chat_and_images(self) -> None:
+        from na_draw import draw_provider_from_group
+
+        group = SimpleNamespace(
+            API_KEY="secret-key",
+            BASE_URL="https://api.example.com/v1",
+            CHAT_MODEL="gemini-3-pro-image-preview",
+            CHAT_PROXY="",
+        )
+        chat = draw_provider_from_group(group, "default-draw", "聊天模式")
+        self.assertIsNotNone(chat)
+        self.assertEqual(chat["api_protocol"], "chat")
+        self.assertEqual(chat["model"], "gemini-3-pro-image-preview")
+        self.assertEqual(chat["_priority"], 1000)
+        images = draw_provider_from_group(group, "default-draw", "图像生成")
+        self.assertEqual(images["api_protocol"], "images")
+        self.assertIsNone(
+            draw_provider_from_group(SimpleNamespace(API_KEY="", BASE_URL="x", CHAT_MODEL="m"), "x", "聊天模式")
+        )
+
+    def test_list_fields_accept_legacy_strings(self) -> None:
+        from pydantic import Field, create_model
+
+        specs = {spec.na_name: spec for spec in iter_field_specs()}
+        model = create_model(
+            "LegacyLists",
+            GROUP_LIST=(specs["GROUP_LIST"].python_type, Field(default_factory=list)),
+            OUTPUT_FORMAT=(specs["OUTPUT_FORMAT"].python_type, Field(default_factory=lambda: ["image"])),
+            AUTO_ANALYSIS_TIME=(specs["AUTO_ANALYSIS_TIME"].python_type, Field(default_factory=lambda: ["23:00"])),
+        )
+        parsed = model(
+            GROUP_LIST="",
+            OUTPUT_FORMAT="image",
+            AUTO_ANALYSIS_TIME="23:00",
+        )
+        self.assertEqual(parsed.GROUP_LIST, [])
+        self.assertEqual(parsed.OUTPUT_FORMAT, ["image"])
+        self.assertEqual(parsed.AUTO_ANALYSIS_TIME, ["23:00"])
+        parsed2 = model(GROUP_LIST="1079396715", OUTPUT_FORMAT="image,html", AUTO_ANALYSIS_TIME="22:30,08:00")
+        self.assertEqual(parsed2.GROUP_LIST, ["1079396715"])
+        self.assertEqual(parsed2.OUTPUT_FORMAT, ["image", "html"])
+        self.assertEqual(parsed2.AUTO_ANALYSIS_TIME, ["22:30", "08:00"])
+
+    def test_chat_completions_url_normalizes_base(self) -> None:
+        self.assertEqual(
+            chat_completions_url("https://api.example.com/v1"),
+            "https://api.example.com/v1/chat/completions",
+        )
+        self.assertEqual(
+            chat_completions_url("https://api.example.com/v1/chat/completions"),
+            "https://api.example.com/v1/chat/completions",
+        )
+        self.assertEqual(
+            chat_completions_url("https://api.example.com"),
+            "https://api.example.com/v1/chat/completions",
+        )
 
 
 class T2IDefaultTests(unittest.TestCase):
@@ -247,6 +368,45 @@ class ConfigManagerTests(unittest.TestCase):
             self.assertTrue(manager.is_group_allowed("123456"))
             self.assertEqual(manager.get_report_template(), "scrapbook")
             self.assertTrue(manager.get_incremental_enabled())
+            self.assertEqual(manager.get_drawing_backend(), "builtin")
+            self.assertEqual(manager.get_draw_model_group_name(), "default-draw")
+            self.assertEqual(manager.get_draw_model_mode(), "聊天模式")
+
+    def test_replace_from_applies_live_atri_overlay(self) -> None:
+        from astrbot.api.star import set_data_dir_factory
+        from src.infrastructure.config.config_manager import ConfigManager
+        from src.shared.constants import PLUGIN_REPO_LABEL, PLUGIN_REPO_URL
+
+        with TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            set_data_dir_factory(lambda _name: tmp_path)
+            stale = NestedConfig({"basic": {"report_template": "scrapbook"}})
+            manager = ConfigManager(stale)
+            self.assertEqual(manager.get_report_template(), "scrapbook")
+            live = SimpleNamespace(
+                REPORT_TEMPLATE="ATRI",
+                CORE_CONFIG_JSON="",
+            )
+            updated = overlay_na_config(load_schema_defaults(), live)
+            stale.replace_from(updated)
+            self.assertEqual(manager.get_report_template(), "ATRI")
+            self.assertEqual(PLUGIN_REPO_LABEL, "Akiyo-dayo/nekro-plugin-group-daily-analysis")
+            self.assertIn("Akiyo-dayo", PLUGIN_REPO_URL)
+
+    def test_atri_footer_uses_plugin_repo_placeholders(self) -> None:
+        template = (
+            ROOT
+            / "src"
+            / "infrastructure"
+            / "reporting"
+            / "templates"
+            / "ATRI"
+            / "image_template.html"
+        ).read_text(encoding="utf-8")
+        self.assertIn("{{ plugin_repo_url }}", template)
+        self.assertIn("{{ plugin_repo_label }}", template)
+        self.assertNotIn("SXP-Simon/astrbot_plugin_qq_group_daily_analysis", template)
+        self.assertIn("Template by Liangyu-G", template)
 
 
 if __name__ == "__main__":

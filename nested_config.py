@@ -53,6 +53,11 @@ class NestedConfig(dict):
         self._persist_path = persist_path
         self._on_save = on_save
 
+    def replace_from(self, data: dict[str, Any]) -> None:
+        """用新的嵌套配置整体替换内存中的值，不立刻落盘。"""
+        self.clear()
+        self.update(copy.deepcopy(data or {}))
+
     def save_config(self) -> None:
         payload = dict(self)
         if self._persist_path is not None:

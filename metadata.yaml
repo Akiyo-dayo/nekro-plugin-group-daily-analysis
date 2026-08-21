@@ -1,6 +1,6 @@
 name: group_daily_analysis
 display_name: 群分析总结插件
 desc: "NekroAgent 群日常分析总结插件。移植自 SXP-Simon/astrbot_plugin_qq_group_daily_analysis，支持话题、称号、金句、活跃度报告与群漫画。"
-version: v5.0.6
+version: v5.1.2
 author: SXPSimon
 repo: https://github.com/Akiyo-dayo/nekro-plugin-group-daily-analysis

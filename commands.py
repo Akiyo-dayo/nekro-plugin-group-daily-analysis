@@ -25,6 +25,12 @@ from src.shared.trace_context import TraceContext
 from src.utils.logger import logger
 
 
+def _live_runtime():
+    runtime = get_runtime()
+    runtime.refresh_na_config()
+    return runtime
+
+
 def _parse_days(raw: str) -> int | None:
     text = (raw or "").strip()
     if not text:
@@ -58,7 +64,7 @@ async def analyze_group_cmd(
     context: CommandExecutionContext,
     days: Annotated[str, Arg("分析天数，默认使用配置", positional=True)] = "",
 ) -> AsyncIterator[CommandResponse]:
-    runtime = get_runtime()
+    runtime = _live_runtime()
     if runtime._terminating:
         yield CmdCtl.failed("插件正在关闭")
         return
@@ -112,7 +118,7 @@ async def generate_comic_cmd(
     context: CommandExecutionContext,
     days: Annotated[str, Arg("分析天数，默认使用配置", positional=True)] = "",
 ) -> AsyncIterator[CommandResponse]:
-    runtime = get_runtime()
+    runtime = _live_runtime()
     try:
         parsed = _require_group(context)
     except ValueError as exc:
@@ -173,7 +179,7 @@ async def generate_comic_cmd(
     category="群分析",
 )
 async def incremental_status_cmd(context: CommandExecutionContext) -> CommandResponse:
-    runtime = get_runtime()
+    runtime = _live_runtime()
     try:
         parsed = _require_group(context)
     except ValueError as exc:
@@ -220,7 +226,7 @@ async def analysis_settings_cmd(
     context: CommandExecutionContext,
     action: Annotated[str, Arg("操作", positional=True, greedy=True)] = "status",
 ) -> AsyncIterator[CommandResponse]:
-    runtime = get_runtime()
+    runtime = _live_runtime()
     try:
         parsed = _require_group(context)
     except ValueError as exc:
@@ -248,7 +254,9 @@ async def analysis_settings_cmd(
             return
         yield CmdCtl.message("🧪 开始测试自动分析功能...")
         try:
-            result = await runtime.auto_scheduler._perform_auto_analysis_for_group(group_id)
+            result = await runtime.auto_scheduler._perform_auto_analysis_for_group(
+                group_id, parsed.adapter_key
+            )
             if isinstance(result, dict) and result.get("success"):
                 yield CmdCtl.success("自动分析及报告发送成功，请查看群消息")
             else:
@@ -310,7 +318,7 @@ async def set_format_cmd(
     context: CommandExecutionContext,
     format_input: Annotated[str, Arg("格式名称或序号", positional=True, greedy=True)] = "",
 ) -> CommandResponse:
-    runtime = get_runtime()
+    runtime = _live_runtime()
     available = ["image", "text", "html"]
     if not format_input.strip():
         current = ", ".join(runtime.config_manager.get_output_format())
@@ -348,7 +356,7 @@ async def set_template_cmd(
     context: CommandExecutionContext,
     template_input: Annotated[str, Arg("模板名称或序号", positional=True, greedy=True)] = "",
 ) -> CommandResponse:
-    runtime = get_runtime()
+    runtime = _live_runtime()
     available = await runtime.template_command_service.list_available_templates()
     if not template_input.strip():
         current = runtime.config_manager.get_report_template()
@@ -376,7 +384,7 @@ async def set_template_cmd(
     category="群分析",
 )
 async def view_templates_cmd(context: CommandExecutionContext) -> CommandResponse:
-    runtime = get_runtime()
+    runtime = _live_runtime()
     available = await runtime.template_command_service.list_available_templates()
     if not available:
         return CmdCtl.failed("未找到任何可用的报告模板")

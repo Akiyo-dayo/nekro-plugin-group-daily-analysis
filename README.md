@@ -2,7 +2,7 @@
 
 # 群分析总结插件 · NekroAgent
 
-[![Version](https://img.shields.io/badge/version-v5.0.6-76bad9?style=for-the-badge)](https://github.com/Akiyo-dayo/nekro-plugin-group-daily-analysis)
+[![Version](https://img.shields.io/badge/version-v5.1.2-76bad9?style=for-the-badge)](https://github.com/Akiyo-dayo/nekro-plugin-group-daily-analysis)
 [![NekroAgent](https://img.shields.io/badge/NekroAgent-Plugin-6c5ce7?style=for-the-badge)](https://github.com/KroMiose/nekro-agent)
 [![License](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](LICENSE)
 
@@ -83,7 +83,8 @@
 
 4. 在插件配置中填写：
    - **分析用模型组**：NA 里已配置的 chat 模型组
-   - 其余（T2I、群名单、定时、漫画）可先保持默认；图片报告默认走 AstrBot 官方出图服务
+   - **漫画绘图模型组**：选类型为绘图(draw) 的模型组（默认 `default-draw`）；调用格式可选「聊天模式」或「图像生成」
+   - 其余（T2I、群名单、定时）可先保持默认；图片报告默认走 AstrBot 官方出图服务
    - 需要 HTML 网页外链时，写在「高级嵌套配置 JSON」，不要单独找外链输入框
 
 5. 在目标群执行 `分析设置 enable`，再执行 `群分析`。
@@ -109,16 +110,17 @@
 | 项 | 说明 |
 | --- | --- |
 | 向 Agent 暴露工具 | 默认开启。关闭后沙盒不再出现分析/漫画工具，命令和定时任务仍可用 |
-| 群名单模式 | `none` 全部可用；`whitelist` 仅名单内；`blacklist` 排除名单 |
-| 定时分析时间 | 24 小时制，多个时间用逗号分隔，例如 `23:00,08:00` |
-| 定时名单 | 白名单且为空时**不会**注册定时任务 |
-| 增量名单 | `inherit` 跟随定时名单；白名单为空表示不启用增量 |
-| 每日群漫画 | 总开关 + 分析完成后自动联动；可用 `群漫画` 单独生成 |
-| T2I 渲染服务地址 | 默认 AstrBot 官方端点，一般不用改。国内慢或要自建时再换 |
-| T2I 接口路径 | 默认 `/generate`，一般不用改 |
-| 高级嵌套配置 JSON | 覆盖原插件分组配置。HTML 外链、提示词等放这里 |
+| 基础设置 | 群名单、输出格式（图片/文本/HTML 可多选）、报告模板、人格标签（MBTI/SBTI/ACGTI）等 |
+| 图片渲染策略 | 两轮出图格式/质量/分辨率、内地/海外字体镜像 |
+| LLM 设置 | 分析用模型组，以及话题/称号/金句/质量/漫画提示词的专用模型组 |
+| 分析功能开关 | 话题、称号、金句、聊天质量锐评，以及是否继承 NA 人设 |
+| 提示词模板 | 原版话题/称号/金句/质量/漫画提示词，含用户 ID 引用说明 |
+| 定时 / 增量 / HTML / 群文件 | 与原版分组一致 |
+| 每日群漫画 | 漫画绘图模型组（NA 的 draw 模型组）和调用格式；分镜文案仍用「画图提示词模型」 |
+| T2I 渲染服务地址 | NA 适配项。默认 AstrBot 官方端点，一般不用改 |
+| 高级嵌套配置 JSON | 仅作覆盖用；日常请用上方分组选项 |
 
-命令里改过的名单会写入插件数据目录的 `nested_config.json`，重启后仍保留。
+每项配置的说明会显示在 WebUI 标题旁的问号里，下拉项与原版 `_conf_schema.json` 对齐。命令里改过的名单会写入插件数据目录的 `nested_config.json`；WebUI 保存的字段在重启后优先生效。
 
 ### Agent 工具
 
@@ -141,11 +143,11 @@
 - API 示例：`https://clown145-astrbot-t2i-service.hf.space`
 - 自托管：Docker 后填本机地址，例如 `http://127.0.0.1:8999`；文档见 [AstrBot 自建 T2I](https://docs.astrbot.app/others/self-host-t2i.html)
 
-接口路径默认 `/generate`。若日志出现渲染超时或无效图片，可在高级 JSON 里加大 `t2i_rendering` 的超时，或换更近的节点。
+接口路径默认 `/generate`。若日志出现渲染超时或无效图片，可在「图片渲染策略」里加大超时，或换更近的节点。
 
 ### HTML 报告外链（可选）
 
-原版这项也是选填。本移植不再单独占配置项，需要时写入「高级嵌套配置 JSON」：
+在「HTML 设置」里填写外链 Base URL；也可以用高级 JSON 覆盖：
 
 ```json
 {
