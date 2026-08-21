@@ -1476,7 +1476,7 @@ class ConfigManager:
         if provider:
             logger.info(
                 "漫画出图使用 NA 模型组 %s（%s / model=%s）",
-                name or provider.get("name"),
+                provider.get("name") or name,
                 mode,
                 provider.get("model"),
             )

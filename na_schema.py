@@ -293,3 +293,12 @@ def assign_path(target: dict[str, Any], path: tuple[str, ...], value: Any) -> No
             cursor[key] = child
         cursor = child
     cursor[path[-1]] = value
+
+
+def read_path(target: dict[str, Any], path: tuple[str, ...]) -> Any:
+    cursor: Any = target
+    for key in path:
+        if not isinstance(cursor, dict) or key not in cursor:
+            return None
+        cursor = cursor[key]
+    return cursor

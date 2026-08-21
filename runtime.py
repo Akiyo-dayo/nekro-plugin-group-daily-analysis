@@ -15,7 +15,7 @@ from html_render import HtmlRenderService
 from llm_bridge import NAContext
 from local_history import LocalMessageHistoryManager
 from nested_config import NestedConfig, deep_merge, load_schema_defaults
-from overlay_config import overlay_na_config
+from overlay_config import apply_nested_to_na_config, overlay_na_config
 from src.application.commands.template_command_service import TemplateCommandService
 from src.application.services.analysis_application_service import (
     AnalysisApplicationService,
@@ -67,6 +67,7 @@ class PluginRuntime:
         self._init_lock = asyncio.Lock()
         self._background_tasks: set[asyncio.Task] = set()
         self._comic_group_tasks: dict[str, asyncio.Task] = {}
+        self._syncing_na = False
 
         data_dir = _plugin_data_dir(na_plugin)
         data_dir.mkdir(parents=True, exist_ok=True)
@@ -88,7 +89,11 @@ class PluginRuntime:
             logger.error(f"叠加 NA 配置失败，将使用默认配置: {exc}", exc_info=True)
             nested = load_schema_defaults()
         nested = deep_merge(persisted, nested)
-        self.nested_config = NestedConfig(nested, persist_path=persist_path)
+        self.nested_config = NestedConfig(
+            nested,
+            persist_path=persist_path,
+            on_save=self._sync_nested_to_na,
+        )
 
         self.html_render_service = HtmlRenderService(
             getattr(na_config, "T2I_API_URL", ""),
@@ -248,12 +253,31 @@ class PluginRuntime:
         self.context.refresh_providers(
             str(getattr(live, "MODEL_GROUP", "default") or "default")
         )
+        if self._initialized and self.auto_scheduler:
+            try:
+                self.auto_scheduler.schedule_jobs(self.context)
+            except Exception as exc:
+                logger.warning(f"刷新配置后重排定时任务失败: {exc}")
         logger.info(
             "已从 NA 配置刷新: report_template=%s model_group=%s output_format=%s",
             self.config_manager.get_report_template(),
             getattr(live, "MODEL_GROUP", "default"),
             self.config_manager.get_output_format(),
         )
+
+    def _sync_nested_to_na(self, payload: dict[str, Any]) -> None:
+        if self._syncing_na:
+            return
+        self._syncing_na = True
+        try:
+            apply_nested_to_na_config(
+                getattr(self.na_plugin, "config", None) or self.na_config,
+                payload,
+            )
+        except Exception as exc:
+            logger.warning(f"把命令配置写回 NA 面板失败: {exc}")
+        finally:
+            self._syncing_na = False
 
     async def stop(self) -> None:
         if self._terminating:

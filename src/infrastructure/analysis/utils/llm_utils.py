@@ -108,7 +108,7 @@ def _is_response_format_unsupported_error(error: Exception) -> bool:
     """
     text = str(error).lower().strip()
     if not text:
-        return True
+        return False
     patterns = [
         "response_format",
         "json_schema",
@@ -117,12 +117,6 @@ def _is_response_format_unsupported_error(error: Exception) -> bool:
         "unknown field",
         "not support",
         "not supported",
-        "invalid request",
-        "bad request",
-        "http 400",
-        "http 422",
-        "empty body",
-        "返回空内容",
     ]
     return any(pattern in text for pattern in patterns)
 

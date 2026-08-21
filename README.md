@@ -2,7 +2,7 @@
 
 # 群分析总结插件 · NekroAgent
 
-[![Version](https://img.shields.io/badge/version-v5.1.3-76bad9?style=for-the-badge)](https://github.com/Akiyo-dayo/nekro-plugin-group-daily-analysis)
+[![Version](https://img.shields.io/badge/version-v5.1.4-76bad9?style=for-the-badge)](https://github.com/Akiyo-dayo/nekro-plugin-group-daily-analysis)
 [![NekroAgent](https://img.shields.io/badge/NekroAgent-Plugin-6c5ce7?style=for-the-badge)](https://github.com/KroMiose/nekro-agent)
 [![License](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](LICENSE)
 

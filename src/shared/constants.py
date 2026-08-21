@@ -68,7 +68,7 @@ class ReportFormat(str, Enum):
 
 # 插件元数据
 PLUGIN_NAME = "group_daily_analysis"
-PLUGIN_VERSION = "5.1.3"
+PLUGIN_VERSION = "5.1.4"
 PLUGIN_REPO_URL = "https://github.com/Akiyo-dayo/nekro-plugin-group-daily-analysis"
 PLUGIN_REPO_LABEL = "Akiyo-dayo/nekro-plugin-group-daily-analysis"
 

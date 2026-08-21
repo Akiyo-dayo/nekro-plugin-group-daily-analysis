@@ -419,6 +419,45 @@ class ConfigManagerTests(unittest.TestCase):
         self.assertNotIn("SXP-Simon/astrbot_plugin_qq_group_daily_analysis", template)
         self.assertIn("Template by Liangyu-G", template)
 
+    def test_command_template_writeback_survives_webui_refresh(self) -> None:
+        from overlay_config import apply_nested_to_na_config, overlay_na_config
+        from src.infrastructure.config.config_manager import ConfigManager
+
+        live = SimpleNamespace(REPORT_TEMPLATE="scrapbook", CORE_CONFIG_JSON="")
+        nested = NestedConfig(
+            {"basic": {"report_template": "scrapbook"}},
+            on_save=lambda payload: apply_nested_to_na_config(live, payload),
+        )
+        manager = ConfigManager(nested)
+        manager.set_report_template("ATRI")
+        self.assertEqual(live.REPORT_TEMPLATE, "ATRI")
+        refreshed = overlay_na_config(load_schema_defaults(), live)
+        nested.replace_from(refreshed)
+        self.assertEqual(manager.get_report_template(), "ATRI")
+
+    def test_missing_named_draw_group_does_not_fallback(self) -> None:
+        from na_draw import pick_draw_model_group
+
+        draw = {"default-draw": object()}
+        self.assertIsNone(pick_draw_model_group("Banana柏拉图", draw, {}))
+        self.assertIs(pick_draw_model_group("default-draw", draw, {}), draw["default-draw"])
+        self.assertIs(pick_draw_model_group("", draw, {}), draw["default-draw"])
+
+    def test_response_format_fallback_is_narrow(self) -> None:
+        from src.infrastructure.analysis.utils.llm_utils import (
+            _is_response_format_unsupported_error,
+        )
+
+        self.assertTrue(
+            _is_response_format_unsupported_error(
+                RuntimeError("response_format json_schema is not supported")
+            )
+        )
+        self.assertFalse(_is_response_format_unsupported_error(RuntimeError("")))
+        self.assertFalse(
+            _is_response_format_unsupported_error(RuntimeError("HTTP 400 invalid request"))
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

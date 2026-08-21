@@ -233,3 +233,9 @@ class NAContext:
         self._providers = {
             name: NAProvider(name, group) for name, group in iter_chat_model_groups().items()
         }
+        if self.default_group not in self._providers:
+            try:
+                group = get_model_group(self.default_group)
+                self._providers[self.default_group] = NAProvider(self.default_group, group)
+            except Exception:
+                pass
