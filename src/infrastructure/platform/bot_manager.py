@@ -302,7 +302,13 @@ class BotManager:
         if self._adapters:
             if len(self._adapters) == 1:
                 return list(self._adapters.values())[0]
-
+            for alias in ("onebot_v11", "onebot", "aiocqhttp"):
+                adapter = self._adapters.get(alias)
+                if adapter:
+                    logger.info(
+                        f"未指定 platform_id，存在多个适配器 {list(self._adapters.keys())}，优先使用 {alias}"
+                    )
+                    return adapter
             logger.warning(
                 f"存在多个适配器 {list(self._adapters.keys())}，但未指定 platform_id。"
             )

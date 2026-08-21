@@ -36,6 +36,7 @@ class ConfigManager:
 
     def __init__(self, config: AstrBotConfig):
         self.config = config
+        self._reload_hook = None
         self._migrate_daily_comic_characters()
         self._migrate_daily_comic_character_prompts()
         self._protect_upgrade_data()
@@ -1382,9 +1383,19 @@ class ConfigManager:
         )
 
     def get_drawing_backend(self) -> str:
-        """获取漫画绘图后端 (builtin/general_plugin/big_banana)。"""
-        group = self._get_group("daily_comic")
-        return str(group.get("drawing_backend", "builtin")).strip() or "builtin"
+        """NA 移植版固定走内置绘图客户端。"""
+        return "builtin"
+
+    def get_draw_model_group_name(self) -> str:
+        return str(self._get_group("daily_comic").get("draw_model_group", "") or "").strip()
+
+    def get_draw_model_mode(self) -> str:
+        mode = str(
+            self._get_group("daily_comic").get("draw_model_mode", "聊天模式") or ""
+        ).strip()
+        if mode in {"图像生成", "images", "image"}:
+            return "图像生成"
+        return "聊天模式"
 
     def get_drawing_external_fallback(self) -> bool:
         """外部绘图后端失败时是否回退内置后端。"""
@@ -1395,15 +1406,13 @@ class ConfigManager:
     def get_drawing_provider_configs(self) -> list[dict]:
         """获取按优先级排序的已启用绘图供应商候选。
 
-        空条目或格式错误的条目会被忽略。绘图供应商配置表是唯一的连接配置
-        来源；没有有效候选时，调用方会返回明确的未配置错误。
-
-        Returns:
-            已启用供应商的配置字典列表。
+        优先把 NA 绘图模型组转成一条供应商；高级 JSON 里的
+        drawing_provider_overrides 仍可作为额外候选。没有有效候选时，
+        调用方会返回明确的未配置错误。
         """
         providers = self._get_group("daily_comic").get("drawing_provider_overrides", [])
         if not isinstance(providers, list):
-            return []
+            providers = []
 
         template_protocols = {
             "google": "google",
@@ -1443,10 +1452,43 @@ class ConfigManager:
                 candidate["_priority"] = 0
             candidates.append(candidate)
 
+        na_provider = self._provider_from_na_draw_group()
+        if na_provider:
+            candidates.append(na_provider)
+
         return sorted(
             candidates,
             key=lambda item: (-item["_priority"], item["_index"]),
         )
+
+    def _provider_from_na_draw_group(self) -> dict | None:
+        """从 NA 绘图模型组构造内置绘图供应商。"""
+        name = self.get_draw_model_group_name()
+        mode = self.get_draw_model_mode()
+        try:
+            from na_draw import draw_provider_from_group, get_draw_model_group
+
+            group = get_draw_model_group(name)
+            provider = draw_provider_from_group(group, name, mode)
+        except Exception as exc:
+            logger.warning("读取 NA 绘图模型组失败: %s", exc)
+            return None
+        if provider:
+            logger.info(
+                "漫画出图使用 NA 模型组 %s（%s / model=%s）",
+                provider.get("name") or name,
+                mode,
+                provider.get("model"),
+            )
+            return provider
+        if name:
+            logger.warning(
+                "NA 绘图模型组 %s 没有可用的 API Key，漫画将无法出图",
+                name,
+            )
+        else:
+            logger.warning("未配置漫画绘图模型组，且没有可用的 JSON 供应商")
+        return None
 
     def get_drawing_output_exception_retries(self) -> int:
         group = self._get_group("daily_comic")
@@ -1664,10 +1706,17 @@ class ConfigManager:
         except Exception as e:
             logger.error(f"保存配置失败: {e}")
 
+    def set_reload_hook(self, hook) -> None:
+        """由 NA 运行时注入：从当前 WebUI 配置重新叠加嵌套配置。"""
+        self._reload_hook = hook
+
     def reload_config(self):
         """重新加载配置"""
         try:
             logger.info("重新加载配置...")
+            hook = getattr(self, "_reload_hook", None)
+            if callable(hook):
+                hook()
             logger.info("配置重载完成")
         except Exception as e:
-            logger.error(f"重新加载配置失败: {e}")
+            logger.error(f"重新加载配置失败: {e}", exc_info=True)

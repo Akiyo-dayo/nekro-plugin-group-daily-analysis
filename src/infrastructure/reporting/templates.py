@@ -126,6 +126,8 @@ class HTMLTemplates:
         """
         try:
             env = self._get_env()
+            current_template = self.config_manager.get_report_template()
+            logger.info(f"渲染报告模板: theme={current_template} file={template_name}")
             template = env.get_template(template_name)
             return template.render(**kwargs)
         except Exception as e:

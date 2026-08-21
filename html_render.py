@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import base64
+import logging
 from typing import Any
 from urllib.parse import urljoin
 
 from http_util import post_json
 from t2i_defaults import resolve_t2i_endpoint
 from nekro_agent.api import core
+
+logger = logging.getLogger("group_daily_analysis")
 
 
 class HtmlRenderService:
@@ -40,12 +43,28 @@ class HtmlRenderService:
         )
         timeout_ms = int((options or {}).get("timeout") or 60000)
         proxy = getattr(core.config, "DEFAULT_PROXY", None)
+        timeout_s = max(timeout_ms / 1000, 30.0)
         response = await post_json(
             url,
             payload,
-            timeout=max(timeout_ms / 1000, 30.0),
+            timeout=timeout_s,
             proxy=proxy or None,
         )
+        if response.status_code >= 500:
+            logger.warning(
+                f"T2I 返回 {response.status_code}，去掉高级出图参数后重试一次"
+            )
+            response = await post_json(
+                url,
+                {
+                    "tmpl": tmpl,
+                    "html": tmpl,
+                    "data": data or {},
+                    "return_url": return_url,
+                },
+                timeout=max(timeout_s, 60.0),
+                proxy=proxy or None,
+            )
         response.raise_for_status()
         content_type = response.headers.get("content-type", "")
         if "application/json" in content_type:

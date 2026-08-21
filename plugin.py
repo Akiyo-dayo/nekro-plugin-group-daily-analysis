@@ -1,9 +1,27 @@
 from __future__ import annotations
 
-from nekro_agent.api.plugin import ConfigBase, NekroPlugin
-from pydantic import Field
+from typing import Any
 
+from pydantic import Field, create_model
+
+from na_schema import extra_na_specs, iter_field_specs
 from t2i_defaults import DEFAULT_T2I_API_PATH, DEFAULT_T2I_API_URL
+
+from nekro_agent.api.plugin import ConfigBase, NekroPlugin
+
+try:
+    from nekro_agent.api.plugin import ExtraField
+except ImportError:  # 原版 NA 可能只在 core_utils 导出
+    from nekro_agent.core.core_utils import ExtraField
+
+try:
+    from nekro_agent.api import i18n
+
+    def _i18n(text: str) -> Any:
+        return i18n.i18n_text(zh_CN=text, en_US=text)
+except Exception:  # pragma: no cover
+    def _i18n(text: str) -> dict[str, str]:
+        return {"zh-CN": text, "en-US": text}
 
 plugin = NekroPlugin(
     name="群分析总结插件",
@@ -12,7 +30,7 @@ plugin = NekroPlugin(
         "群日常分析总结插件：话题、称号、金句、活跃度报告与群漫画。"
         "移植自 SXP-Simon/astrbot_plugin_qq_group_daily_analysis。"
     ),
-    version="5.0.6",
+    version="5.1.4",
     author="SXPSimon",
     url="https://github.com/Akiyo-dayo/nekro-plugin-group-daily-analysis",
     support_adapter=["onebot_v11", "discord", "telegram", "qqbot_openclaw"],
@@ -21,112 +39,56 @@ plugin = NekroPlugin(
 )
 
 
-@plugin.mount_config()
-class PluginConfig(ConfigBase):
-    """群分析插件配置。提示词等高级项可通过 CORE_CONFIG_JSON 覆盖。"""
+def _json_extra(spec: Any) -> dict[str, Any]:
+    extra: dict[str, Any] = {
+        "i18n_category": _i18n(spec.category),
+        "i18n_title": _i18n(spec.title),
+        "i18n_description": _i18n(spec.description),
+    }
+    if spec.is_textarea:
+        extra["is_textarea"] = True
+    if spec.is_hidden:
+        extra["is_hidden"] = True
+    if spec.ref_model_groups:
+        extra["ref_model_groups"] = True
+        extra["model_type"] = spec.model_type or "chat"
+    if spec.ref_presets:
+        extra["ref_presets"] = True
+    if spec.is_list:
+        extra["sub_item_name"] = spec.sub_item_name
+    try:
+        return ExtraField(**{k: v for k, v in extra.items() if k.startswith("i18n_") or k in {
+            "is_textarea", "is_hidden", "ref_model_groups", "model_type", "ref_presets", "sub_item_name"
+        }}).model_dump(exclude_none=True)
+    except Exception:
+        return extra
 
-    EXPOSE_AGENT_TOOLS: bool = Field(
-        default=True,
-        title="向 Agent 暴露工具",
-        description="关闭后，沙盒内不再出现群分析 / 群漫画等 Agent 工具，命令与定时任务仍可用。",
-    )
-    MODEL_GROUP: str = Field(
-        default="default",
-        title="分析用模型组",
-        description="用于话题、称号、金句等分析的 NA chat 模型组。",
-        json_schema_extra={
-            "ref_model_groups": True,
-            "model_type": "chat",
-        },
-    )
-    T2I_API_URL: str = Field(
-        default=DEFAULT_T2I_API_URL,
-        title="T2I 渲染服务地址",
-        description=(
-            "图片报告出图服务。默认使用 AstrBot 官方端点，一般不用改。"
-            "国内慢可改为 https://t2i.vercel.ciallo.de5.net ；自建可填本机地址。"
-            "留空同样回落到官方端点。"
-        ),
-    )
-    T2I_API_PATH: str = Field(
-        default=DEFAULT_T2I_API_PATH,
-        title="T2I 接口路径",
-        description="一般不用改。官方与常见 HF 空间均为 /generate。",
-    )
 
-    GROUP_LIST_MODE: str = Field(
-        default="none",
-        title="群名单模式",
-        description="none=全部群可用，whitelist=仅名单内，blacklist=排除名单。",
-    )
-    GROUP_LIST: str = Field(
-        default="",
-        title="群名单",
-        description="每行一个群号或 UMO，例如 onebot:GroupMessage:123456。",
-    )
-    ANALYSIS_DAYS: int = Field(default=1, title="默认分析天数")
-    MAX_MESSAGES: int = Field(default=1000, title="最多拉取消息数")
-    MIN_MESSAGES_THRESHOLD: int = Field(default=200, title="最少消息数阈值")
-    FILTER_BOT_MESSAGES: bool = Field(default=True, title="过滤机器人自己的消息")
-    OUTPUT_FORMAT: str = Field(
-        default="image",
-        title="输出格式",
-        description="image / text / html，可用逗号组合，例如 image,html。",
-    )
-    REPORT_TEMPLATE: str = Field(default="scrapbook", title="报告模板")
-    ENABLE_ANALYSIS_REPLY: bool = Field(
-        default=False,
-        title="用文字提示代替表情回应",
-    )
-    SHOW_REPORT_CAPTION: bool = Field(default=True, title="发送报告时附带说明")
-    DEBUG_MODE: bool = Field(default=False, title="调试模式")
+def _field_kwargs(spec: Any) -> dict[str, Any]:
+    kwargs: dict[str, Any] = {
+        "title": spec.title,
+        "description": spec.description,
+        "json_schema_extra": _json_extra(spec),
+    }
+    if spec.is_list:
+        kwargs["default_factory"] = lambda value=list(spec.default or []): list(value)
+    else:
+        kwargs["default"] = spec.default
+    return kwargs
 
-    AUTO_ANALYSIS_TIME: str = Field(
-        default="23:00",
-        title="定时分析时间",
-        description="24 小时制，多个时间用逗号分隔，例如 23:00,08:00。",
-    )
-    SCHEDULED_GROUP_LIST_MODE: str = Field(
-        default="whitelist",
-        title="定时分析名单模式",
-        description="whitelist / blacklist / none。",
-    )
-    SCHEDULED_GROUP_LIST: str = Field(
-        default="",
-        title="定时分析群名单",
-        description="留空且为白名单时，不会注册定时任务。",
-    )
 
-    INCREMENTAL_GROUP_LIST_MODE: str = Field(
-        default="whitelist",
-        title="增量分析名单模式",
-        description="inherit / whitelist / blacklist。",
-    )
-    INCREMENTAL_GROUP_LIST: str = Field(default="", title="增量分析群名单")
-    INCREMENTAL_MIN_MESSAGES: int = Field(default=300, title="增量触发消息数")
-    INCREMENTAL_REPORT_IMMEDIATELY: bool = Field(
-        default=False,
-        title="增量后立即发报告（调试）",
-    )
-
-    ENABLE_DAILY_COMIC: bool = Field(default=False, title="启用群漫画")
-    ENABLE_AUTO_DAILY_COMIC: bool = Field(default=True, title="分析完成后自动生成漫画")
-    COMIC_GROUP_LIST_MODE: str = Field(
-        default="inherit",
-        title="漫画群名单模式",
-        description="inherit / whitelist / blacklist。",
-    )
-    COMIC_GROUP_LIST: str = Field(default="", title="漫画群名单")
-
-    CORE_CONFIG_JSON: str = Field(
-        default="",
-        title="高级嵌套配置 JSON",
-        description=(
-            "按原插件分组结构覆盖配置。HTML 外链、提示词等放这里，例如 "
-            '{"html":{"html_base_url":"https://report.example.com","html_only_url":true}}。'
-            "留空则只用上方字段。"
-        ),
+def _build_plugin_config() -> type[ConfigBase]:
+    fields: dict[str, tuple[Any, Any]] = {}
+    for spec in iter_field_specs() + extra_na_specs():
+        fields[spec.na_name] = (spec.python_type, Field(**_field_kwargs(spec)))
+    return create_model(
+        "PluginConfig",
+        __base__=ConfigBase,
+        __doc__="群分析插件配置，字段与原版 AstrBot `_conf_schema.json` 对齐。",
+        **fields,
     )
 
 
+PluginConfig = plugin.mount_config()(_build_plugin_config())
 config: PluginConfig = plugin.get_config(PluginConfig)
+_ = (DEFAULT_T2I_API_URL, DEFAULT_T2I_API_PATH)

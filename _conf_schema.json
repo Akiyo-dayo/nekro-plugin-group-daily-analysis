@@ -89,7 +89,7 @@
                     "format"
                 ],
                 "default": "scrapbook",
-                "hint": "分析报告使用的HTML模板名称，QQ 端可以使用 `/设置模板` 查看使用指南，使用`/查看模板` 命令查看模板样式效果。其他平台不支持合并转发，可以到 [模板](https://github.com/SXP-Simon/astrbot_plugin_qq_group_daily_analysis/tree/main/assets) 文件夹中查看模板样式效果"
+                "hint": "分析报告使用的HTML模板名称，QQ 端可以使用 `/设置模板` 查看使用指南，使用`/查看模板` 命令查看模板样式效果。其他平台不支持合并转发，可以到 [模板](https://github.com/Akiyo-dayo/nekro-plugin-group-daily-analysis/tree/main/assets) 文件夹中查看模板样式效果"
             },
             "profile_display_mode": {
                 "type": "string",
@@ -386,7 +386,7 @@
                 "description": "用于每日群漫画区域的功能，画图提示词专用 Provider ID",
                 "_special": "select_provider",
                 "default": "",
-                "hint": "专门用于生成漫画分镜、画图提示词及失败后的提示词重写。推荐最低使用 DeepSeek V4 Flash，避免使用角色扮演能力较弱的模型。留空则使用主 LLM Provider"
+                "hint": "只负责生成漫画分镜/画图提示词，不是出图接口。请选聊天模型组。出图请用「漫画绘图模型组」。留空则使用主 LLM 模型组。"
             },
             "llm_retries": {
                 "type": "int",
@@ -579,19 +579,22 @@
                 "type": "string",
                 "options": ["builtin", "general_plugin", "big_banana"],
                 "default": "builtin",
-                "hint": "builtin=使用本插件内置绘图客户端；general_plugin=调用已安装的「通用生图」插件（https://cloud.astrbot.app/plugin/railgun19457/astrbot_plugin_image_generation）的公共 API；big_banana=调用已安装的「大香蕉」插件（https://cloud.astrbot.app/plugin/sukafon/astrbot_plugin_big_banana）的绘图管线（支持 Gemini、SiliconFlow 等多家服务）。使用外部后端时，需先在对应插件中配置其自身的 API/提供商；未安装、未激活或调用失败时自动回退内置后端。"
+                "invisible": true,
+                "hint": "NA 移植版固定使用内置绘图客户端，并改为选择系统绘图模型组。AstrBot 的「通用生图 / 大香蕉」后端在 NekroAgent 中不存在。"
             },
             "drawing_external_fallback": {
                 "description": "外部后端失败时回退内置后端",
                 "type": "bool",
                 "default": true,
-                "hint": "使用通用生图/大香蕉外部绘图后端时，若其未安装、未激活或生成失败，是否自动回退到本插件内置绘图客户端；关闭后失败将直接取消本次漫画生成。"
+                "invisible": true,
+                "hint": "仅 AstrBot 外部绘图后端使用。NA 移植版已隐藏。"
             },
             "drawing_provider_overrides": {
                 "description": "绘图供应商配置表",
                 "type": "template_list",
                 "default": [],
-                "hint": "可添加多个绘图供应商。按 priority 从高到低尝试，同优先级按表中顺序尝试；所有候选失败后才判定漫画生成失败。至少添加一个包含 API Key 的启用条目。",
+                "invisible": true,
+                "hint": "原版 AstrBot 供应商卡片。NA 请改用「漫画绘图模型组」；如需手工覆盖，可写在高级嵌套配置 JSON 的 daily_comic.drawing_provider_overrides。",
                 "templates": {
                     "google": {
                         "name": "google",

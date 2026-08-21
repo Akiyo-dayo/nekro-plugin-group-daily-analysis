@@ -106,7 +106,9 @@ def _is_response_format_unsupported_error(error: Exception) -> bool:
     """
     判断是否为 Provider/网关不支持 response_format 的兼容性错误。
     """
-    text = str(error).lower()
+    text = str(error).lower().strip()
+    if not text:
+        return False
     patterns = [
         "response_format",
         "json_schema",
@@ -115,7 +117,6 @@ def _is_response_format_unsupported_error(error: Exception) -> bool:
         "unknown field",
         "not support",
         "not supported",
-        "invalid request",
     ]
     return any(pattern in text for pattern in patterns)
 

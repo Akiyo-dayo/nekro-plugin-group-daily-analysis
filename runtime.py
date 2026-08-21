@@ -15,7 +15,7 @@ from html_render import HtmlRenderService
 from llm_bridge import NAContext
 from local_history import LocalMessageHistoryManager
 from nested_config import NestedConfig, deep_merge, load_schema_defaults
-from overlay_config import overlay_na_config
+from overlay_config import apply_nested_to_na_config, overlay_na_config
 from src.application.commands.template_command_service import TemplateCommandService
 from src.application.services.analysis_application_service import (
     AnalysisApplicationService,
@@ -67,6 +67,7 @@ class PluginRuntime:
         self._init_lock = asyncio.Lock()
         self._background_tasks: set[asyncio.Task] = set()
         self._comic_group_tasks: dict[str, asyncio.Task] = {}
+        self._syncing_na = False
 
         data_dir = _plugin_data_dir(na_plugin)
         data_dir.mkdir(parents=True, exist_ok=True)
@@ -87,8 +88,12 @@ class PluginRuntime:
         except Exception as exc:
             logger.error(f"叠加 NA 配置失败，将使用默认配置: {exc}", exc_info=True)
             nested = load_schema_defaults()
-        nested = deep_merge(nested, persisted)
-        self.nested_config = NestedConfig(nested, persist_path=persist_path)
+        nested = deep_merge(persisted, nested)
+        self.nested_config = NestedConfig(
+            nested,
+            persist_path=persist_path,
+            on_save=self._sync_nested_to_na,
+        )
 
         self.html_render_service = HtmlRenderService(
             getattr(na_config, "T2I_API_URL", ""),
@@ -105,6 +110,7 @@ class PluginRuntime:
         self.context.platform_manager = None
 
         self.config_manager = ConfigManager(self.nested_config)
+        self.config_manager.set_reload_hook(self.refresh_na_config)
         self.bot_manager = BotManager(self.config_manager)
         self.bot_manager.set_context(self.context)
         self.bot_manager.set_plugin_instance(self)
@@ -214,6 +220,64 @@ class PluginRuntime:
                 await self.auto_scheduler.start_incremental_trigger()
             self._initialized = True
             logger.info("群分析插件已在 NekroAgent 中初始化")
+
+    def refresh_na_config(self) -> None:
+        """用当前 NA WebUI 配置覆盖内存中的嵌套配置。
+
+        插件只在初始化时叠加过一次配置。WebUI 保存会更新
+        plugin.config / config.yaml，但不会自动写进 ConfigManager，
+        所以会出现“面板已选 ATRI、实际仍用启动时的 scrapbook”这类偏差。
+        """
+        live = getattr(self.na_plugin, "config", None) or self.na_config
+        self.na_config = live
+        persist_path = getattr(self.nested_config, "_persist_path", None)
+        persisted: dict[str, Any] = {}
+        if persist_path is not None and Path(persist_path).exists():
+            try:
+                loaded = json.loads(Path(persist_path).read_text(encoding="utf-8"))
+                if isinstance(loaded, dict):
+                    persisted = loaded
+            except (OSError, json.JSONDecodeError) as exc:
+                logger.warning(f"刷新时读取持久化嵌套配置失败: {exc}")
+        try:
+            nested = overlay_na_config(load_schema_defaults(), live)
+        except Exception as exc:
+            logger.error(f"刷新 NA 配置失败，继续使用内存中的配置: {exc}", exc_info=True)
+            return
+        nested = deep_merge(persisted, nested)
+        self.nested_config.replace_from(nested)
+        self.html_render_service.configure(
+            getattr(live, "T2I_API_URL", ""),
+            getattr(live, "T2I_API_PATH", "/generate"),
+        )
+        self.context.refresh_providers(
+            str(getattr(live, "MODEL_GROUP", "default") or "default")
+        )
+        if self._initialized and self.auto_scheduler:
+            try:
+                self.auto_scheduler.schedule_jobs(self.context)
+            except Exception as exc:
+                logger.warning(f"刷新配置后重排定时任务失败: {exc}")
+        logger.info(
+            "已从 NA 配置刷新: report_template=%s model_group=%s output_format=%s",
+            self.config_manager.get_report_template(),
+            getattr(live, "MODEL_GROUP", "default"),
+            self.config_manager.get_output_format(),
+        )
+
+    def _sync_nested_to_na(self, payload: dict[str, Any]) -> None:
+        if self._syncing_na:
+            return
+        self._syncing_na = True
+        try:
+            apply_nested_to_na_config(
+                getattr(self.na_plugin, "config", None) or self.na_config,
+                payload,
+            )
+        except Exception as exc:
+            logger.warning(f"把命令配置写回 NA 面板失败: {exc}")
+        finally:
+            self._syncing_na = False
 
     async def stop(self) -> None:
         if self._terminating:

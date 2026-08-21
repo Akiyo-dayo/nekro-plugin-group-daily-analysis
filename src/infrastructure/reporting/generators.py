@@ -27,6 +27,7 @@ from markupsafe import Markup
 from PIL import Image, UnidentifiedImageError
 
 from ...domain.repositories.report_repository import IReportGenerator
+from ...shared.constants import PLUGIN_REPO_LABEL, PLUGIN_REPO_URL
 from ...utils.logger import logger
 from ..utils.template_utils import render_template
 from ..visualization.activity_charts import ActivityVisualizer
@@ -295,6 +296,39 @@ class ReportGenerator(IReportGenerator):
 
         return name
 
+    def _save_last_rendered_report(
+        self,
+        html_content: str,
+        image_data: bytes | None = None,
+        image_path: str | None = None,
+    ) -> None:
+        """把最近一次报告 HTML/图片落到插件数据目录，便于核对模板和页脚。"""
+        template_name = self.config_manager.get_report_template()
+        html_text = html_content or ""
+        logger.info(
+            "报告内容检查: template=%s atri_credit=%s plugin_repo=%s html_len=%s",
+            template_name,
+            "ATRI | Template by Liangyu-G" in html_text,
+            PLUGIN_REPO_LABEL in html_text,
+            len(html_text),
+        )
+        try:
+            out_dir = Path(self.data_dir)
+            out_dir.mkdir(parents=True, exist_ok=True)
+            (out_dir / "last_rendered_report.html").write_text(html_text, encoding="utf-8")
+            payload = image_data
+            if payload is None and image_path:
+                raw_path = str(image_path)
+                if raw_path.startswith("base64://"):
+                    payload = base64.b64decode(raw_path[9:])
+                elif os.path.isfile(raw_path):
+                    payload = Path(raw_path).read_bytes()
+            if payload:
+                ext = ".jpg" if payload.startswith(b"\xff\xd8\xff") else ".png"
+                (out_dir / f"last_rendered_report{ext}").write_bytes(payload)
+        except Exception as exc:
+            logger.warning(f"保存最近渲染报告失败: {exc}")
+
     def _build_safe_report_path(
         self,
         output_dir: Path,
@@ -384,6 +418,12 @@ class ReportGenerator(IReportGenerator):
             )
 
             # 先渲染HTML模板（使用 Jinja2 渲染器以支持逻辑标签）
+            logger.info(
+                "开始渲染图片报告: group=%s template=%s footer=%s",
+                group_id,
+                self.config_manager.get_report_template(),
+                PLUGIN_REPO_LABEL,
+            )
             html_content = self.html_templates.render_template(
                 "image_template.html", **render_payload
             )
@@ -399,6 +439,7 @@ class ReportGenerator(IReportGenerator):
                 return None, None
 
             logger.debug(f"图片报告HTML渲染完成，长度: {len(html_content)} 字符")
+            self._save_last_rendered_report(html_content)
 
             # 从配置中获取两轮渲染策略
             render_strategies = self.config_manager.get_t2i_rendering_strategies()
@@ -492,6 +533,9 @@ class ReportGenerator(IReportGenerator):
 
                             if is_valid:
                                 if isinstance(image_data, bytes):
+                                    self._save_last_rendered_report(
+                                        html_content, image_data=image_data
+                                    )
                                     b64 = base64.b64encode(image_data).decode("utf-8")
                                     image_url = f"base64://{b64}"
                                     logger.info(
@@ -501,6 +545,9 @@ class ReportGenerator(IReportGenerator):
                                     )
                                     return image_url, html_content
                                 elif isinstance(image_data, str):
+                                    self._save_last_rendered_report(
+                                        html_content, image_path=image_data
+                                    )
                                     logger.info(
                                         "图片生成成功 "
                                         f"(轮次 {attempt}, 视口 {viewport_description}): "
@@ -618,9 +665,12 @@ class ReportGenerator(IReportGenerator):
                 hide_user_names=hide_user_names,
                 allow_alphanumeric_user_ids=allow_alphanumeric_user_ids,
             )
-            logger.debug(f"HTML 渲染数据准备完成，包含 {len(render_data)} 个字段")
-
-            # 生成 HTML 内容（使用 Jinja2 渲染器，尝试 html_template.html，失败则回退到 image_template.html）
+            logger.info(
+                "开始渲染 HTML 报告: group=%s template=%s footer=%s",
+                group_id,
+                self.config_manager.get_report_template(),
+                PLUGIN_REPO_LABEL,
+            )
             html_content = None
             try:
                 html_content = self.html_templates.render_template(
@@ -1165,6 +1215,8 @@ class ReportGenerator(IReportGenerator):
             else 0,
             "avatar_reuse_registry": avatar_reuse_registry,
             "avatar_reuse_aliases": avatar_reuse_aliases,
+            "plugin_repo_url": PLUGIN_REPO_URL,
+            "plugin_repo_label": PLUGIN_REPO_LABEL,
         }
 
         logger.debug(f"渲染数据准备完成，包含 {len(render_data)} 个字段")
